@@ -4,6 +4,30 @@ use datafusion::{arrow::datatypes::DataType, catalog::schema::SchemaProvider, pr
 
 const XML_DECL: &str = r#"<?xml version="1.0" encoding="utf-8"?>"#;
 
+async fn mock_odata_service_handler() -> axum::response::Response<String> {
+    let body = std::fs::read_to_string("mock/service.xml").unwrap();
+
+    axum::response::Response::builder()
+        .header(
+            http::header::CONTENT_TYPE.as_str(),
+            "application/xml;charset=utf-8",
+        )
+        .body(body)
+        .unwrap()
+}
+
+async fn mock_odata_metadata_handler() -> axum::response::Response<String> {
+    let body = std::fs::read_to_string("mock/metadata.xml").unwrap();
+
+    axum::response::Response::builder()
+        .header(
+            http::header::CONTENT_TYPE.as_str(),
+            "application/xml;charset=utf-8",
+        )
+        .body(body)
+        .unwrap()
+}
+
 async fn odata_service_handler(
     axum::extract::State(ctx): axum::extract::State<SessionContext>,
 ) -> axum::response::Response<String> {
@@ -217,6 +241,11 @@ async fn main() {
     let app = axum::Router::new()
         .route("/", axum::routing::get(odata_service_handler))
         .route("/$metadata", axum::routing::get(odata_metadata_handler))
+        .route("/mock", axum::routing::get(mock_odata_service_handler))
+        .route(
+            "/mock/$metadata",
+            axum::routing::get(mock_odata_metadata_handler),
+        )
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .layer(
             tower_http::cors::CorsLayer::new()
