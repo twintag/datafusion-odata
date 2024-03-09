@@ -179,7 +179,7 @@ async fn main() {
 
     let ctx = SessionContext::new();
     ctx.register_parquet(
-        "covid19.canada",
+        "covid19_canada",
         "data/covid.parquet",
         ParquetReadOptions {
             file_extension: ".parquet",
@@ -190,7 +190,7 @@ async fn main() {
     .unwrap();
 
     ctx.register_parquet(
-        "tickers.spy",
+        "tickers_spy",
         "data/tickers.parquet",
         ParquetReadOptions {
             file_extension: ".parquet",
