@@ -194,6 +194,13 @@ async fn main() {
     let app = axum::Router::new()
         .route("/", axum::routing::get(odata_service_handler))
         .route("/$metadata", axum::routing::get(odata_metadata_handler))
+        .layer(tower_http::trace::TraceLayer::new_for_http())
+        .layer(
+            tower_http::cors::CorsLayer::new()
+                .allow_origin(tower_http::cors::Any)
+                .allow_methods(vec![http::Method::GET, http::Method::POST])
+                .allow_headers(tower_http::cors::Any),
+        )
         .with_state(ctx);
 
     tracing::info!("Runninng");
