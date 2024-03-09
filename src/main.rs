@@ -242,6 +242,7 @@ async fn main() {
         .route("/", axum::routing::get(odata_service_handler))
         .route("/$metadata", axum::routing::get(odata_metadata_handler))
         .route("/mock", axum::routing::get(mock_odata_service_handler))
+        .route("/mock/", axum::routing::get(mock_odata_service_handler))
         .route(
             "/mock/$metadata",
             axum::routing::get(mock_odata_metadata_handler),
