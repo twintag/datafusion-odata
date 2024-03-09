@@ -72,7 +72,7 @@ impl Schema {
             namespace,
             entity_types,
             entity_containers,
-            ns: "http://schemas.microsoft.com/ado/2008/09/edm".to_string(),
+            ns: "http://schemas.microsoft.com/ado/2009/11/edm".to_string(),
         }
     }
 }

@@ -4,26 +4,11 @@
 	xmlns:atom="http://www.w3.org/2005/Atom">
 	<workspace>
 		<atom:title>Default</atom:title>
-		<collection href="Products">
-			<atom:title>Products</atom:title>
+        <collection href="tickers_spy">
+			<atom:title>tickers_spy</atom:title>
 		</collection>
-		<collection href="ProductDetails">
-			<atom:title>ProductDetails</atom:title>
-		</collection>
-		<collection href="Categories">
-			<atom:title>Categories</atom:title>
-		</collection>
-		<collection href="Suppliers">
-			<atom:title>Suppliers</atom:title>
-		</collection>
-		<collection href="Persons">
-			<atom:title>Persons</atom:title>
-		</collection>
-		<collection href="PersonDetails">
-			<atom:title>PersonDetails</atom:title>
-		</collection>
-		<collection href="Advertisements">
-			<atom:title>Advertisements</atom:title>
+        <collection href="covid19_canada">
+			<atom:title>covid19_canada</atom:title>
 		</collection>
 	</workspace>
 </service>

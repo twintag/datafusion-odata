@@ -30,6 +30,8 @@ async fn mock_odata_metadata_handler() -> axum::response::Response<String> {
 
 async fn odata_service_handler(
     axum::extract::State(ctx): axum::extract::State<SessionContext>,
+    axum::extract::TypedHeader(host): axum::extract::TypedHeader<axum::headers::Host>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
 ) -> axum::response::Response<String> {
     use test_odata::odata::service::*;
 
@@ -44,10 +46,13 @@ async fn odata_service_handler(
         })
     }
 
-    let service = Service::new(Workspace {
-        title: "Default".to_string(),
-        collections,
-    });
+    let service = Service::new(
+        format!("http://{host}{uri}"),
+        Workspace {
+            title: "Default".to_string(),
+            collections,
+        },
+    );
 
     let xml = quick_xml::se::to_string_with_root("service", &service).unwrap();
 

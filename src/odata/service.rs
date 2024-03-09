@@ -8,20 +8,20 @@
 #[derive(Debug, serde::Serialize)]
 pub struct Service {
     pub workspace: Workspace,
+    #[serde(rename = "@xmlns:base")]
+    pub base: String,
     #[serde(rename = "@xmlns")]
     pub ns: String,
-    #[serde(rename = "@xmlns:base")]
-    pub ns_base: String,
     #[serde(rename = "@xmlns:atom")]
     pub ns_atom: String,
 }
 
 impl Service {
-    pub fn new(workspace: Workspace) -> Self {
+    pub fn new(base_url: String, workspace: Workspace) -> Self {
         Self {
             workspace,
+            base: base_url,
             ns: "http://www.w3.org/2007/app".to_string(),
-            ns_base: "https://services.odata.org/V3/northwind/Northwind.svc/".to_string(),
             ns_atom: "http://www.w3.org/2005/Atom".to_string(),
         }
     }
@@ -31,7 +31,7 @@ impl Service {
 pub struct Workspace {
     #[serde(rename = "atom:title")]
     pub title: String,
-    #[serde(rename = "Collection")]
+    #[serde(rename = "collection")]
     pub collections: Vec<Collection>,
 }
 
