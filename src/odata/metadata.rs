@@ -56,15 +56,22 @@ pub struct Schema {
     pub namespace: String,
     #[serde(rename = "EntityType")]
     pub entity_types: Vec<EntityType>,
+    #[serde(rename = "EntityContainer")]
+    pub entity_containers: Vec<EntityContainer>,
     #[serde(rename = "@xmlns")]
     pub ns: String,
 }
 
 impl Schema {
-    pub fn new(namespace: String, entity_types: Vec<EntityType>) -> Self {
+    pub fn new(
+        namespace: String,
+        entity_types: Vec<EntityType>,
+        entity_containers: Vec<EntityContainer>,
+    ) -> Self {
         Self {
             namespace,
             entity_types,
+            entity_containers,
             ns: "http://schemas.microsoft.com/ado/2008/09/edm".to_string(),
         }
     }
@@ -135,4 +142,25 @@ impl Property {
             unicode: Some(true),
         }
     }
+}
+
+// <EntityContainer Name="DemoService" m:IsDefaultEntityContainer="true">
+//   <EntitySet Name="Products" EntityType="ODataDemo.Product"/>
+
+#[derive(Debug, serde::Serialize)]
+pub struct EntityContainer {
+    #[serde(rename = "@Name")]
+    pub name: String,
+    #[serde(rename = "@m:IsDefaultEntityContainer")]
+    pub is_default: bool,
+    #[serde(rename = "EntitySet")]
+    pub entity_set: Vec<EntitySet>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct EntitySet {
+    #[serde(rename = "@Name")]
+    pub name: String,
+    #[serde(rename = "@EntityType")]
+    pub entity_type: String,
 }

@@ -54,6 +54,12 @@ async fn odata_metadata_handler(
             let schema = catalog.schema(&sname).unwrap();
 
             let mut entity_types = Vec::new();
+            let mut entity_container = EntityContainer {
+                name: sname.clone(),
+                is_default: true,
+                entity_set: Vec::new(),
+            };
+
             for tname in schema.table_names() {
                 let table = schema.table(&tname).await.unwrap();
 
@@ -131,15 +137,20 @@ async fn odata_metadata_handler(
                 }
 
                 entity_types.push(EntityType {
-                    name: tname,
+                    name: tname.clone(),
                     key: EntityKey::new(vec![PropertyRef {
                         name: "offset".to_string(),
                     }]),
                     properties,
                 });
+
+                entity_container.entity_set.push(EntitySet {
+                    name: tname.clone(),
+                    entity_type: tname.clone(),
+                });
             }
 
-            schemas.push(Schema::new(sname, entity_types));
+            schemas.push(Schema::new(sname, entity_types, vec![entity_container]));
         }
     }
 
