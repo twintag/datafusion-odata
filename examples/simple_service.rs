@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use datafusion::{arrow::datatypes::Schema, catalog::schema::SchemaProvider, prelude::*};
+use datafusion::{
+    arrow::datatypes::Schema, catalog::schema::SchemaProvider, prelude::*, sql::TableReference,
+};
 
 use test_odata::odata::collection::QueryParams;
 
@@ -139,7 +141,13 @@ async fn odata_collection_handler(
     let query = query.decode();
     tracing::debug!(?query, ?headers, "Collection query");
 
-    let df = odata_ctx.query_ctx.table(&collection_name).await.unwrap();
+    let df = odata_ctx
+        .query_ctx
+        .table(TableReference::bare(&collection_name))
+        .await
+        .unwrap();
+
+    // Select columns
     let df = if query.select.is_empty() {
         df
     } else {
@@ -147,6 +155,7 @@ async fn odata_collection_handler(
         df.select_columns(&select).unwrap()
     };
 
+    // Order by
     let df = if query.order_by.is_empty() {
         df
     } else {
@@ -160,6 +169,7 @@ async fn odata_collection_handler(
         .unwrap()
     };
 
+    // Skip / limit
     let df = df
         .limit(
             query.skip.unwrap_or(0),
@@ -170,6 +180,7 @@ async fn odata_collection_handler(
         )
         .unwrap();
 
+    // Serialize
     let schema: Schema = df.schema().clone().into();
     let record_batches = df.collect().await.unwrap();
 
@@ -300,7 +311,7 @@ async fn main() {
 
     let ctx = SessionContext::new();
     ctx.register_parquet(
-        "covid19_canada",
+        "covid19.canada",
         "examples/data/covid.parquet",
         ParquetReadOptions {
             file_extension: ".parquet",
@@ -311,7 +322,7 @@ async fn main() {
     .unwrap();
 
     ctx.register_parquet(
-        "tickers_spy",
+        "tickers.spy",
         "examples/data/tickers.parquet",
         ParquetReadOptions {
             file_extension: ".parquet",
