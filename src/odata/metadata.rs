@@ -7,6 +7,8 @@
 //         </Key>
 //         <Property Name="LastName" Type="Edm.String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true"/>
 
+use datafusion::arrow::datatypes::DataType;
+
 #[derive(Debug, serde::Serialize)]
 pub struct Edmx {
     #[serde(rename = "edmx:DataServices")]
@@ -163,4 +165,47 @@ pub struct EntitySet {
     pub name: String,
     #[serde(rename = "@EntityType")]
     pub entity_type: String,
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+// See: https://www.odata.org/documentation/odata-version-3-0/common-schema-definition-language-csdl/
+pub fn to_edm_type(dt: &DataType) -> &'static str {
+    match dt {
+        DataType::Null => unimplemented!(),
+        DataType::Boolean => "Edm.Boolean",
+        DataType::Int8 => unimplemented!(),
+        DataType::Int16 => "Edm.Int16",
+        DataType::Int32 => "Edm.Int32",
+        DataType::Int64 => "Edm.Int64",
+        DataType::UInt8 => unimplemented!(),
+        DataType::UInt16 => "Edm.Int16",
+        DataType::UInt32 => "Edm.Int32",
+        DataType::UInt64 => "Edm.Int64",
+        DataType::Utf8 => "Edm.String",
+        DataType::Float16 => "Edm.Single",
+        DataType::Float32 => "Edm.Single",
+        DataType::Float64 => "Edm.Double",
+        DataType::Timestamp(_, _) => "Edm.DateTime",
+        DataType::Date32 => "Edm.DateTime",
+        DataType::Date64 => "Edm.DateTime",
+        DataType::Time32(_) => unimplemented!(),
+        DataType::Time64(_) => unimplemented!(),
+        DataType::Duration(_) => unimplemented!(),
+        DataType::Interval(_) => unimplemented!(),
+        DataType::Binary => unimplemented!(),
+        DataType::FixedSizeBinary(_) => unimplemented!(),
+        DataType::LargeBinary => unimplemented!(),
+        DataType::LargeUtf8 => unimplemented!(),
+        DataType::List(_) => unimplemented!(),
+        DataType::FixedSizeList(_, _) => unimplemented!(),
+        DataType::LargeList(_) => unimplemented!(),
+        DataType::Struct(_) => unimplemented!(),
+        DataType::Union(_, _) => unimplemented!(),
+        DataType::Dictionary(_, _) => unimplemented!(),
+        DataType::Decimal128(_, _) => unimplemented!(),
+        DataType::Decimal256(_, _) => unimplemented!(),
+        DataType::Map(_, _) => unimplemented!(),
+        DataType::RunEndEncoded(_, _) => unimplemented!(),
+    }
 }

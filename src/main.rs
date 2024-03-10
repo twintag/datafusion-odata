@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use datafusion::{arrow::datatypes::DataType, catalog::schema::SchemaProvider, prelude::*};
+use datafusion::{arrow::datatypes::Schema, catalog::schema::SchemaProvider, prelude::*};
+use test_odata::odata::query::*;
 
 const XML_DECL: &str = r#"<?xml version="1.0" encoding="utf-8"?>"#;
 
@@ -85,70 +86,11 @@ async fn odata_metadata_handler(
         let mut properties = Vec::new();
 
         for field in table.schema().fields() {
-            // See: https://www.odata.org/documentation/odata-version-3-0/common-schema-definition-language-csdl/
-            let p = match field.data_type() {
-                DataType::Null => unimplemented!(),
-                DataType::Boolean => {
-                    Property::primitive(field.name(), "Edm.Boolean", field.is_nullable())
-                }
-                DataType::Int8 => unimplemented!(),
-                DataType::Int16 => {
-                    Property::primitive(field.name(), "Edm.Int16", field.is_nullable())
-                }
-                DataType::Int32 => {
-                    Property::primitive(field.name(), "Edm.Int32", field.is_nullable())
-                }
-                DataType::Int64 => {
-                    Property::primitive(field.name(), "Edm.Int64", field.is_nullable())
-                }
-                DataType::UInt8 => unimplemented!(),
-                DataType::UInt16 => {
-                    Property::primitive(field.name(), "Edm.Int16", field.is_nullable())
-                }
-                DataType::UInt32 => {
-                    Property::primitive(field.name(), "Edm.Int32", field.is_nullable())
-                }
-                DataType::UInt64 => {
-                    Property::primitive(field.name(), "Edm.Int64", field.is_nullable())
-                }
-                DataType::Utf8 => Property::string(field.name(), "Edm.String", field.is_nullable()),
-                DataType::Float16 => {
-                    Property::primitive(field.name(), "Edm.Boolean", field.is_nullable())
-                }
-                DataType::Float32 => {
-                    Property::primitive(field.name(), "Edm.Boolean", field.is_nullable())
-                }
-                DataType::Float64 => {
-                    Property::primitive(field.name(), "Edm.Boolean", field.is_nullable())
-                }
-                DataType::Timestamp(_, _) => {
-                    Property::primitive(field.name(), "Edm.Boolean", field.is_nullable())
-                }
-                DataType::Date32 => {
-                    Property::primitive(field.name(), "Edm.Boolean", field.is_nullable())
-                }
-                DataType::Date64 => {
-                    Property::primitive(field.name(), "Edm.Boolean", field.is_nullable())
-                }
-                DataType::Time32(_) => unimplemented!(),
-                DataType::Time64(_) => unimplemented!(),
-                DataType::Duration(_) => unimplemented!(),
-                DataType::Interval(_) => unimplemented!(),
-                DataType::Binary => unimplemented!(),
-                DataType::FixedSizeBinary(_) => unimplemented!(),
-                DataType::LargeBinary => unimplemented!(),
-                DataType::LargeUtf8 => unimplemented!(),
-                DataType::List(_) => unimplemented!(),
-                DataType::FixedSizeList(_, _) => unimplemented!(),
-                DataType::LargeList(_) => unimplemented!(),
-                DataType::Struct(_) => unimplemented!(),
-                DataType::Union(_, _) => unimplemented!(),
-                DataType::Dictionary(_, _) => unimplemented!(),
-                DataType::Decimal128(_, _) => unimplemented!(),
-                DataType::Decimal256(_, _) => unimplemented!(),
-                DataType::Map(_, _) => unimplemented!(),
-                DataType::RunEndEncoded(_, _) => unimplemented!(),
-            };
+            let p = Property::primitive(
+                field.name(),
+                to_edm_type(field.data_type()),
+                field.is_nullable(),
+            );
 
             properties.push(p);
         }
@@ -181,6 +123,62 @@ async fn odata_metadata_handler(
             "application/xml;charset=utf-8",
         )
         .body(format!("{XML_DECL}{xml}"))
+        .unwrap()
+}
+
+async fn odata_collection_handler(
+    axum::extract::State(ctx): axum::extract::State<SessionContext>,
+    axum::extract::Path(collection): axum::extract::Path<String>,
+    axum::extract::Query(query): axum::extract::Query<ODataQuery>,
+    headers: axum::http::HeaderMap,
+) -> axum::response::Response<String> {
+    tracing::debug!(?query, ?headers, "Collection query");
+
+    let select_cols = query.select.unwrap_or_default();
+    let mut select_cols: Vec<_> = select_cols.split(',').collect();
+    select_cols.retain(|c| !c.is_empty());
+
+    let skip = query.skip.unwrap_or_default() as usize;
+    let limit = query.top.map(|v| v as usize);
+
+    let df = ctx.table(&collection).await.unwrap();
+    let df = if select_cols.is_empty() {
+        df
+    } else {
+        df.select_columns(&select_cols).unwrap()
+    };
+
+    let df = if let Some(order_by) = query.order_by {
+        let (cname, asc) = if let Some(cname) = order_by.strip_suffix(" asc") {
+            (cname, true)
+        } else if let Some(cname) = order_by.strip_suffix(" desc") {
+            (cname, false)
+        } else {
+            (order_by.as_str(), true)
+        };
+
+        df.sort(vec![col(cname).sort(asc, false)]).unwrap()
+    } else {
+        df
+    };
+
+    let df = df.limit(skip, limit).unwrap();
+    let schema: Schema = df.schema().clone().into();
+
+    let record_batches = df.collect().await.unwrap();
+
+    let mut writer = quick_xml::Writer::new(Vec::<u8>::new());
+    test_odata::odata::atom::feed_from_records(&schema, record_batches, &mut writer).unwrap();
+
+    let buf = writer.into_inner();
+    let body = String::from_utf8(buf).unwrap();
+
+    axum::response::Response::builder()
+        .header(
+            http::header::CONTENT_TYPE.as_str(),
+            "application/atom+xml;type=feed;charset=utf-8",
+        )
+        .body(body)
         .unwrap()
 }
 
@@ -251,6 +249,11 @@ async fn main() {
         .route(
             "/mock/$metadata",
             axum::routing::get(mock_odata_metadata_handler),
+        )
+        .route("/:collection", axum::routing::get(odata_collection_handler))
+        .route(
+            "/:collection/",
+            axum::routing::get(odata_collection_handler),
         )
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .layer(

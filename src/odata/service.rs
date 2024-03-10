@@ -8,8 +8,8 @@
 #[derive(Debug, serde::Serialize)]
 pub struct Service {
     pub workspace: Workspace,
-    #[serde(rename = "@xmlns:base")]
-    pub base: String,
+    #[serde(rename = "@xml:base")]
+    pub base_url: String,
     #[serde(rename = "@xmlns")]
     pub ns: String,
     #[serde(rename = "@xmlns:atom")]
@@ -20,7 +20,7 @@ impl Service {
     pub fn new(base_url: String, workspace: Workspace) -> Self {
         Self {
             workspace,
-            base: base_url,
+            base_url,
             ns: "http://www.w3.org/2007/app".to_string(),
             ns_atom: "http://www.w3.org/2005/Atom".to_string(),
         }
