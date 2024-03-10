@@ -153,11 +153,23 @@ async fn odata_collection_handler(
     };
 
     let df = df
-        .limit(query.skip.unwrap_or(0), Some(query.top.unwrap_or(100)))
+        .limit(
+            query.skip.unwrap_or(0),
+            Some(std::cmp::min(
+                query.top.unwrap_or(odata_ctx.default_rows_per_page()),
+                odata_ctx.max_rows_per_page(),
+            )),
+        )
         .unwrap();
 
     let schema: Schema = df.schema().clone().into();
     let record_batches = df.collect().await.unwrap();
+
+    let num_rows: usize = record_batches.iter().map(|b| b.num_rows()).sum();
+    let raw_bytes: usize = record_batches
+        .iter()
+        .map(|b: &datafusion::arrow::array::RecordBatch| b.get_array_memory_size())
+        .sum();
 
     let mut writer = quick_xml::Writer::new(Vec::<u8>::new());
     test_odata::odata::atom::atom_feed_from_records(
@@ -175,6 +187,16 @@ async fn odata_collection_handler(
 
     let buf = writer.into_inner();
     let body = String::from_utf8(buf).unwrap();
+
+    let xml_bytes = body.len();
+
+    tracing::debug!(
+        media_type = MEDIA_TYPE_ATOM,
+        num_rows,
+        raw_bytes,
+        xml_bytes,
+        "Prepared a response"
+    );
 
     axum::response::Response::builder()
         .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_ATOM)
@@ -241,6 +263,14 @@ impl ODataContext {
         let schema = catalog.schema(schema_name).unwrap();
 
         (schema_name.clone(), schema)
+    }
+
+    pub fn default_rows_per_page(&self) -> usize {
+        100
+    }
+
+    pub fn max_rows_per_page(&self) -> usize {
+        usize::max_value()
     }
 }
 
