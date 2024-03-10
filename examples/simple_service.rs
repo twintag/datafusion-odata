@@ -8,8 +8,12 @@ use test_odata::odata::collection::QueryParams;
 const MEDIA_TYPE_ATOM: &str = "application/atom+xml;type=feed;charset=utf-8";
 const MEDIA_TYPE_XML: &str = "application/xml;charset=utf-8";
 
+///////////////////////////////////////////////////////////////////////////////
+// Mock handlers
+///////////////////////////////////////////////////////////////////////////////
+
 async fn mock_odata_service_handler() -> axum::response::Response<String> {
-    let body = std::fs::read_to_string("mock/service.xml").unwrap();
+    let body = std::fs::read_to_string("examples/mocks/service.xml").unwrap();
 
     axum::response::Response::builder()
         .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_XML)
@@ -18,7 +22,7 @@ async fn mock_odata_service_handler() -> axum::response::Response<String> {
 }
 
 async fn mock_odata_metadata_handler() -> axum::response::Response<String> {
-    let body = std::fs::read_to_string("mock/metadata.xml").unwrap();
+    let body = std::fs::read_to_string("examples/mocks/metadata.xml").unwrap();
 
     axum::response::Response::builder()
         .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_XML)
@@ -27,13 +31,17 @@ async fn mock_odata_metadata_handler() -> axum::response::Response<String> {
 }
 
 async fn mock_odata_collection_handler() -> axum::response::Response<String> {
-    let body = std::fs::read_to_string("mock/collection.xml").unwrap();
+    let body = std::fs::read_to_string("examples/mocks/collection.xml").unwrap();
 
     axum::response::Response::builder()
         .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_ATOM)
         .body(body)
         .unwrap()
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// Real handlers
+///////////////////////////////////////////////////////////////////////////////
 
 async fn odata_service_handler(
     axum::Extension(odata_ctx): axum::Extension<ODataContext>,
@@ -204,6 +212,8 @@ async fn odata_collection_handler(
         .unwrap()
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 fn write_object_to_xml<T>(tag: &str, object: &T) -> String
 where
     T: serde::ser::Serialize,
@@ -219,6 +229,8 @@ where
 
     String::from_utf8(writer.into_inner()).unwrap()
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 #[derive(Clone)]
 pub struct ODataContext {
@@ -274,6 +286,8 @@ impl ODataContext {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
@@ -287,7 +301,7 @@ async fn main() {
     let ctx = SessionContext::new();
     ctx.register_parquet(
         "covid19_canada",
-        "data/covid.parquet",
+        "examples/data/covid.parquet",
         ParquetReadOptions {
             file_extension: ".parquet",
             ..Default::default()
@@ -298,7 +312,7 @@ async fn main() {
 
     ctx.register_parquet(
         "tickers_spy",
-        "data/tickers.parquet",
+        "examples/data/tickers.parquet",
         ParquetReadOptions {
             file_extension: ".parquet",
             ..Default::default()
