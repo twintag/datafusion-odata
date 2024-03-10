@@ -1,8 +1,9 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
+use chrono::Utc;
 use datafusion::{arrow::datatypes::Schema, catalog::schema::SchemaProvider, prelude::*};
-use http::{uri::PathAndQuery, Uri};
-use test_odata::odata::query::*;
+
+use test_odata::odata::collection::QueryParams;
 
 const XML_DECL: &str = r#"<?xml version="1.0" encoding="utf-8"?>"#;
 
@@ -43,13 +44,12 @@ async fn mock_odata_collection_handler() -> axum::response::Response<String> {
 }
 
 async fn odata_service_handler(
-    axum::extract::State(ctx): axum::extract::State<SessionContext>,
+    axum::Extension(odata_ctx): axum::Extension<ODataContext>,
     axum::extract::TypedHeader(host): axum::extract::TypedHeader<axum::headers::Host>,
-    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
 ) -> axum::response::Response<String> {
     use test_odata::odata::service::*;
 
-    let (_catalog_name_, _schema_name, schema) = get_schema(&ctx);
+    let (_, schema) = odata_ctx.get_schema();
 
     let mut collections = Vec::new();
 
@@ -61,7 +61,7 @@ async fn odata_service_handler(
     }
 
     let service = Service::new(
-        format!("http://{host}{uri}"),
+        odata_ctx.service_base_url(&host),
         Workspace {
             title: "Default".to_string(),
             collections,
@@ -80,11 +80,11 @@ async fn odata_service_handler(
 }
 
 async fn odata_metadata_handler(
-    axum::extract::State(ctx): axum::extract::State<SessionContext>,
+    axum::Extension(odata_ctx): axum::Extension<ODataContext>,
 ) -> axum::response::Response<String> {
     use test_odata::odata::metadata::*;
 
-    let (_catalog_name, schema_name, schema) = get_schema(&ctx);
+    let (schema_name, schema) = odata_ctx.get_schema();
 
     let mut entity_types = Vec::new();
     let mut entity_container = EntityContainer {
@@ -140,59 +140,56 @@ async fn odata_metadata_handler(
 }
 
 async fn odata_collection_handler(
-    axum::extract::State(ctx): axum::extract::State<SessionContext>,
+    axum::Extension(odata_ctx): axum::Extension<ODataContext>,
     axum::extract::TypedHeader(host): axum::extract::TypedHeader<axum::headers::Host>,
-    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
-    axum::extract::Path(collection): axum::extract::Path<String>,
-    axum::extract::Query(query): axum::extract::Query<ODataQuery>,
+    axum::extract::Path(collection_name): axum::extract::Path<String>,
+    axum::extract::Query(query): axum::extract::Query<QueryParams>,
     headers: axum::http::HeaderMap,
 ) -> axum::response::Response<String> {
+    let query = query.decode();
     tracing::debug!(?query, ?headers, "Collection query");
 
-    let select_cols = query.select.unwrap_or_default();
-    let mut select_cols: Vec<_> = select_cols.split(',').collect();
-    select_cols.retain(|c| !c.is_empty());
-
-    let skip = query.skip.unwrap_or_default() as usize;
-    let limit = query.top.unwrap_or(100) as usize;
-
-    let df = ctx.table(&collection).await.unwrap();
-    let df = if select_cols.is_empty() {
+    let df = odata_ctx.query_ctx.table(&collection_name).await.unwrap();
+    let df = if query.select.is_empty() {
         df
     } else {
-        df.select_columns(&select_cols).unwrap()
+        let select: Vec<_> = query.select.iter().map(String::as_str).collect();
+        df.select_columns(&select).unwrap()
     };
 
-    let df = if let Some(order_by) = query.order_by {
-        let (cname, asc) = if let Some(cname) = order_by.strip_suffix(" asc") {
-            (cname, true)
-        } else if let Some(cname) = order_by.strip_suffix(" desc") {
-            (cname, false)
-        } else {
-            (order_by.as_str(), true)
-        };
-
-        df.sort(vec![col(cname).sort(asc, false)]).unwrap()
-    } else {
+    let df = if query.order_by.is_empty() {
         df
+    } else {
+        df.sort(
+            query
+                .order_by
+                .into_iter()
+                .map(|(c, asc)| col(c).sort(asc, true))
+                .collect(),
+        )
+        .unwrap()
     };
 
-    let df = df.limit(skip, Some(limit)).unwrap();
+    let df = df
+        .limit(query.skip.unwrap_or(0), Some(query.top.unwrap_or(100)))
+        .unwrap();
+
     let schema: Schema = df.schema().clone().into();
-
     let record_batches = df.collect().await.unwrap();
 
-    // Remove query params
-    let mut parts = uri.into_parts();
-    parts.path_and_query = parts
-        .path_and_query
-        .map(|pq| PathAndQuery::from_str(pq.path()).unwrap());
-    let uri = Uri::from_parts(parts).unwrap();
-    let base_url = format!("http://{host}{uri}");
-
     let mut writer = quick_xml::Writer::new(Vec::<u8>::new());
-    test_odata::odata::atom::feed_from_records(&schema, record_batches, &base_url, &mut writer)
-        .unwrap();
+    test_odata::odata::atom::atom_feed_from_records(
+        &schema,
+        record_batches,
+        &odata_ctx.service_base_url(&host),
+        &odata_ctx.collection_base_url(&host, &collection_name),
+        &collection_name,
+        &collection_name,
+        &odata_ctx.namespace_of(&collection_name),
+        Utc::now(),
+        &mut writer,
+    )
+    .unwrap();
 
     let buf = writer.into_inner();
     let body = String::from_utf8(buf).unwrap();
@@ -206,28 +203,50 @@ async fn odata_collection_handler(
         .unwrap()
 }
 
-fn get_schema(ctx: &SessionContext) -> (String, String, Arc<dyn SchemaProvider>) {
-    let cnames = ctx.catalog_names();
-    assert_eq!(
-        cnames.len(),
-        1,
-        "Multiple catalogs not supported: {:?}",
-        cnames
-    );
-    let catalog_name = cnames.first().unwrap();
-    let catalog = ctx.catalog(catalog_name).unwrap();
+#[derive(Clone)]
+pub struct ODataContext {
+    pub query_ctx: SessionContext,
+    service_path: String,
+}
 
-    let snames = catalog.schema_names();
-    assert_eq!(
-        snames.len(),
-        1,
-        "Multiple schemas not supported: {:?}",
-        snames
-    );
-    let schema_name = snames.first().unwrap();
-    let schema = catalog.schema(schema_name).unwrap();
+impl ODataContext {
+    pub fn service_base_url(&self, host: &axum::headers::Host) -> String {
+        format!("http://{host}{}", self.service_path)
+    }
 
-    (catalog_name.clone(), schema_name.clone(), schema)
+    pub fn collection_base_url(&self, host: &axum::headers::Host, collection_name: &str) -> String {
+        let service_base_url = self.service_base_url(host);
+        format!("{service_base_url}{collection_name}")
+    }
+
+    pub fn namespace_of(&self, _collection_name: &str) -> String {
+        let (schem_name, _) = self.get_schema();
+        schem_name
+    }
+
+    pub fn get_schema(&self) -> (String, Arc<dyn SchemaProvider>) {
+        let cnames = self.query_ctx.catalog_names();
+        assert_eq!(
+            cnames.len(),
+            1,
+            "Multiple catalogs not supported: {:?}",
+            cnames
+        );
+        let catalog_name = cnames.first().unwrap();
+        let catalog = self.query_ctx.catalog(catalog_name).unwrap();
+
+        let snames = catalog.schema_names();
+        assert_eq!(
+            snames.len(),
+            1,
+            "Multiple schemas not supported: {:?}",
+            snames
+        );
+        let schema_name = snames.first().unwrap();
+        let schema = catalog.schema(schema_name).unwrap();
+
+        (schema_name.clone(), schema)
+    }
 }
 
 #[tokio::main]
@@ -294,7 +313,10 @@ async fn main() {
                 .allow_methods(vec![http::Method::GET, http::Method::POST])
                 .allow_headers(tower_http::cors::Any),
         )
-        .with_state(ctx);
+        .layer(axum::Extension(ODataContext {
+            query_ctx: ctx,
+            service_path: "/".to_string(),
+        }));
 
     tracing::info!("Runninng");
     let server = axum::Server::bind(&([0, 0, 0, 0], 3000).into()).serve(app.into_make_service());

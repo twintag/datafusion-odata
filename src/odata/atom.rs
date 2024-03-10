@@ -1,62 +1,84 @@
 use std::sync::Arc;
 
+use chrono::{DateTime, Utc};
 use datafusion::arrow::{
     array::{Array, AsArray, RecordBatch},
-    datatypes::*,
+    datatypes::{DataType, *},
 };
 use quick_xml::events::*;
 
 // https://www.odata.org/documentation/odata-version-3-0/atom-format/
 //
 // <?xml version="1.0" encoding="utf-8"?>
-// <feed xml:base="https://services.odata.org/V3/northwind/Northwind.svc/"
+// <feed
+//   xml:base="http://a5d4b8ec90d5144a08efb47e789d49d5-1706314482.us-west-2.elb.amazonaws.com/"
 //   xmlns="http://www.w3.org/2005/Atom"
 //   xmlns:d="http://schemas.microsoft.com/ado/2007/08/dataservices"
 //   xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata">
-//   <id>https://services.odata.org/V3/Northwind/Northwind.svc/Orders/</id>
-//   <title type="text">Orders</title>
-//   <updated>2024-03-10T00:11:11Z</updated>
-//   <link rel="self" title="Orders" href="Orders" />
+//
+//   <id>http://a5d4b8ec90d5144a08efb47e789d49d5-1706314482.us-west-2.elb.amazonaws.com/tickers_spy/</id>
+//   <title type="text">tickers_spy</title>
+//   <updated>2024-03-10T00:36:45Z</updated>
+//   <link rel="self" title="tickers_spy" href="tickers_spy" />
+//
 //   <entry>
-//     <id>https://services.odata.org/V3/northwind/Northwind.svc/Orders(10248)</id>
-//     <category term="NorthwindModel.Order" scheme="http://schemas.microsoft.com/ado/2007/08/dataservices/scheme" />
-//     <link rel="edit" title="Order" href="Orders(10248)" />
+//     <id>http://a5d4b8ec90d5144a08efb47e789d49d5-1706314482.us-west-2.elb.amazonaws.com/tickers_spy(0)</id>
+//     <category term="ODataDemo.tickers_spy" scheme="http://schemas.microsoft.com/ado/2007/08/dataservices/scheme" />
+//     <link rel="edit" title="tickers_spy" href="tickers_spy(0)" />
 //     <title />
-//     <updated>2024-03-10T00:11:11Z</updated>
+//     <updated>2024-03-10T00:36:45Z</updated>
 //     <author>
 //       <name />
 //     </author>
 //     <content type="application/xml">
 //       <m:properties>
-//         <d:OrderID m:type="Edm.Int32">10248</d:OrderID>
+//         <d:offset m:type="Edm.Int64">0</d:offset>
+//         <d:from_symbol m:type="Edm.String">spy</d:from_symbol>
+//         <d:to_symbol m:type="Edm.String">usd</d:to_symbol>
+//         <d:close m:type="Edm.Double">135.5625</d:close>
 //       </m:properties>
 //     </content>
 //   </entry>
 //   <entry>
-//     <id>https://services.odata.org/V3/northwind/Northwind.svc/Orders(10249)</id>
-//     <category term="NorthwindModel.Order" scheme="http://schemas.microsoft.com/ado/2007/08/dataservices/scheme" />
-//     <link rel="edit" title="Order" href="Orders(10249)" />
+//     <id>http://a5d4b8ec90d5144a08efb47e789d49d5-1706314482.us-west-2.elb.amazonaws.com/tickers_spy(1)</id>
+//     <category term="ODataDemo.tickers_spy" scheme="http://schemas.microsoft.com/ado/2007/08/dataservices/scheme" />
+//     <link rel="edit" title="tickers_spy" href="tickers_spy(1)" />
 //     <title />
-//     <updated>2024-03-10T00:11:11Z</updated>
+//     <updated>2024-03-10T00:36:45Z</updated>
 //     <author>
 //       <name />
 //     </author>
 //     <content type="application/xml">
 //       <m:properties>
-//         <d:OrderID m:type="Edm.Int32">10249</d:OrderID>
+//         <d:offset m:type="Edm.Int64">1</d:offset>
+//         <d:from_symbol m:type="Edm.String">spy</d:from_symbol>
+//         <d:to_symbol m:type="Edm.String">usd</d:to_symbol>
+//         <d:close m:type="Edm.Double">136.5622</d:close>
 //       </m:properties>
 //     </content>
 //   </entry>
 // </feed>
-pub fn feed_from_records<W>(
+pub fn atom_feed_from_records<W>(
     schema: &Schema,
     record_batches: Vec<RecordBatch>,
-    base_url: &str,
+    service_base_url: &str,
+    collection_base_url: &str,
+    collection_name: &str,
+    type_name: &str,
+    type_namespace: &str,
+    updated_time: DateTime<Utc>,
     writer: &mut quick_xml::Writer<W>,
 ) -> quick_xml::Result<()>
 where
     W: std::io::Write,
 {
+    assert!(service_base_url.starts_with("http"));
+    assert!(collection_base_url.starts_with("http"));
+    assert!(service_base_url.ends_with('/'));
+    assert!(!collection_base_url.ends_with('/'));
+
+    let fq_type = format!("{type_namespace}.{type_name}");
+
     let columns: Vec<_> = schema
         .fields()
         .iter()
@@ -78,7 +100,7 @@ where
     )))?;
 
     let mut feed = BytesStart::new("feed");
-    feed.push_attribute(("xml:base", base_url));
+    feed.push_attribute(("xml:base", service_base_url));
     feed.push_attribute(("xmlns", "http://www.w3.org/2005/Atom"));
     feed.push_attribute((
         "xmlns:d",
@@ -91,32 +113,88 @@ where
 
     writer.write_event(Event::Start(feed))?;
 
+    // <id>http://a5d4b8ec90d5144a08efb47e789d49d5-1706314482.us-west-2.elb.amazonaws.com/tickers_spy/</id>
+    // <title type="text">tickers_spy</title>
+    // <updated>2024-03-10T00:36:45Z</updated>
+    // <link rel="self" title="tickers_spy" href="tickers_spy" />
     writer
         .create_element("id")
-        .write_text_content(BytesText::from_escaped("123"))?;
-    writer.create_element("category").write_empty()?;
-    writer.create_element("link").write_empty()?;
-    writer.create_element("title").write_empty()?;
-    writer.create_element("updated").write_empty()?;
+        .write_text_content(BytesText::from_escaped(collection_base_url))?;
+    writer
+        .create_element("title")
+        .with_attribute(("type", "text"))
+        .write_text_content(BytesText::from_escaped(collection_name))?;
+    writer
+        .create_element("updated")
+        .write_text_content(encode_date_time(&updated_time))?;
+    writer
+        .create_element("link")
+        .with_attributes([
+            ("rel", "self"),
+            ("title", collection_name),
+            ("href", collection_name),
+        ])
+        .write_empty()?;
 
     for batch in record_batches {
         for row in 0..batch.num_rows() {
             writer.write_event(Event::Start(BytesStart::new("entry")))?;
+
+            // <id>http://a5d4b8ec90d5144a08efb47e789d49d5-1706314482.us-west-2.elb.amazonaws.com/tickers_spy(1)</id>
+            // <category term="ODataDemo.tickers_spy" scheme="http://schemas.microsoft.com/ado/2007/08/dataservices/scheme" />
+            // <link rel="edit" title="tickers_spy" href="tickers_spy(1)" />
+            // <title />
+            // <updated>2024-03-10T00:36:45Z</updated>
+            // <author>
+            //   <name />
+            // </author>
+
+            // TODO: Extract ID from offset
+            let id = row;
+            let entry_url_rel = format!("{collection_name}({id})");
+            let entry_url_full = format!("{collection_base_url}({id})");
+
             writer
                 .create_element("id")
-                .write_text_content(BytesText::from_escaped("123"))?;
-            writer.create_element("category").write_empty()?;
-            writer.create_element("link").write_empty()?;
-            writer.create_element("title").write_empty()?;
-            writer.create_element("updated").write_empty()?;
+                .write_text_content(BytesText::from_escaped(entry_url_full))?;
             writer
-                .create_element("author")
-                .write_inner_content::<_, quick_xml::Error>(|writer| {
-                    writer.create_element("name").write_empty()?;
-                    Ok(())
-                })?;
+                .create_element("category")
+                .with_attributes([
+                    (
+                        "scheme",
+                        "http://schemas.microsoft.com/ado/2007/08/dataservices/scheme",
+                    ),
+                    ("term", &fq_type),
+                ])
+                .write_empty()?;
+            writer
+                .create_element("link")
+                .with_attributes([
+                    ("rel", "edit"),
+                    ("title", collection_name),
+                    ("href", &entry_url_rel),
+                ])
+                .write_empty()?;
+            writer.create_element("title").write_empty()?;
+            writer
+                .create_element("updated")
+                .write_text_content(encode_date_time(&updated_time))?;
+            writer.write_event(Event::Start(BytesStart::new("author")))?;
+            writer.create_element("name").write_empty()?;
+            writer.write_event(Event::End(BytesEnd::new("author")))?;
 
-            writer.write_event(Event::Start(BytesStart::new("content")))?;
+            // <content type="application/xml">
+            //   <m:properties>
+            //     <d:offset m:type="Edm.Int64">1</d:offset>
+            //     <d:from_symbol m:type="Edm.String">spy</d:from_symbol>
+            //     <d:to_symbol m:type="Edm.String">usd</d:to_symbol>
+            //     <d:close m:type="Edm.Double">136.5622</d:close>
+            //   </m:properties>
+            // </content>
+            writer.write_event(Event::Start(
+                BytesStart::new("content").with_attributes([("type", "application/xml")]),
+            ))?;
+            writer.write_event(Event::Start(BytesStart::new("m:properties")))?;
 
             for (i, (ctag, typ)) in column_tags.iter().zip(&column_types).enumerate() {
                 let col = batch.column(i);
@@ -129,77 +207,54 @@ where
                     BytesText::new("null")
                 } else {
                     match col.data_type() {
-                        datafusion::arrow::datatypes::DataType::Null => todo!(),
-                        datafusion::arrow::datatypes::DataType::Boolean => {
+                        DataType::Null => todo!(),
+                        DataType::Boolean => {
                             let arr = col.as_boolean();
                             let val = arr.value(row).to_string();
                             BytesText::from_escaped(val)
                         }
-                        datafusion::arrow::datatypes::DataType::Int8 => {
-                            encode_primitive::<Int8Type>(col, row)
-                        }
-                        datafusion::arrow::datatypes::DataType::Int16 => {
-                            encode_primitive::<Int16Type>(col, row)
-                        }
-                        datafusion::arrow::datatypes::DataType::Int32 => {
-                            encode_primitive::<Int32Type>(col, row)
-                        }
-                        datafusion::arrow::datatypes::DataType::Int64 => {
-                            encode_primitive::<Int64Type>(col, row)
-                        }
-                        datafusion::arrow::datatypes::DataType::UInt8 => {
-                            encode_primitive::<UInt8Type>(col, row)
-                        }
-                        datafusion::arrow::datatypes::DataType::UInt16 => {
-                            encode_primitive::<UInt16Type>(col, row)
-                        }
-                        datafusion::arrow::datatypes::DataType::UInt32 => {
-                            encode_primitive::<UInt32Type>(col, row)
-                        }
-                        datafusion::arrow::datatypes::DataType::UInt64 => {
-                            encode_primitive::<UInt64Type>(col, row)
-                        }
-                        datafusion::arrow::datatypes::DataType::Float16 => {
-                            encode_primitive::<Float16Type>(col, row)
-                        }
-                        datafusion::arrow::datatypes::DataType::Float32 => {
-                            encode_primitive::<Float32Type>(col, row)
-                        }
-                        datafusion::arrow::datatypes::DataType::Float64 => {
-                            encode_primitive::<Float64Type>(col, row)
-                        }
-                        datafusion::arrow::datatypes::DataType::Timestamp(_, _) => {
+                        DataType::Int8 => encode_primitive::<Int8Type>(col, row),
+                        DataType::Int16 => encode_primitive::<Int16Type>(col, row),
+                        DataType::Int32 => encode_primitive::<Int32Type>(col, row),
+                        DataType::Int64 => encode_primitive::<Int64Type>(col, row),
+                        DataType::UInt8 => encode_primitive::<UInt8Type>(col, row),
+                        DataType::UInt16 => encode_primitive::<UInt16Type>(col, row),
+                        DataType::UInt32 => encode_primitive::<UInt32Type>(col, row),
+                        DataType::UInt64 => encode_primitive::<UInt64Type>(col, row),
+                        DataType::Float16 => encode_primitive::<Float16Type>(col, row),
+                        DataType::Float32 => encode_primitive::<Float32Type>(col, row),
+                        DataType::Float64 => encode_primitive::<Float64Type>(col, row),
+                        DataType::Timestamp(_, _) => {
                             let arr = col.as_primitive::<TimestampMillisecondType>();
                             let ticks = arr.value(row);
                             let ts = chrono::DateTime::from_timestamp_millis(ticks).unwrap();
-                            let val = ts.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-                            BytesText::from_escaped(val)
+                            encode_date_time(&ts)
                         }
-                        datafusion::arrow::datatypes::DataType::Date32 => todo!(),
-                        datafusion::arrow::datatypes::DataType::Date64 => todo!(),
-                        datafusion::arrow::datatypes::DataType::Time32(_) => todo!(),
-                        datafusion::arrow::datatypes::DataType::Time64(_) => todo!(),
-                        datafusion::arrow::datatypes::DataType::Duration(_) => todo!(),
-                        datafusion::arrow::datatypes::DataType::Interval(_) => todo!(),
-                        datafusion::arrow::datatypes::DataType::Binary => todo!(),
-                        datafusion::arrow::datatypes::DataType::FixedSizeBinary(_) => todo!(),
-                        datafusion::arrow::datatypes::DataType::LargeBinary => todo!(),
-                        datafusion::arrow::datatypes::DataType::Utf8 => {
+                        DataType::Date32 => todo!(),
+                        DataType::Date64 => todo!(),
+                        DataType::Time32(_) => todo!(),
+                        DataType::Time64(_) => todo!(),
+                        DataType::Duration(_) => todo!(),
+                        DataType::Interval(_) => todo!(),
+                        DataType::Binary => todo!(),
+                        DataType::FixedSizeBinary(_) => todo!(),
+                        DataType::LargeBinary => todo!(),
+                        DataType::Utf8 => {
                             let arr = col.as_string::<i32>();
                             let val = arr.value(row);
                             BytesText::from_escaped(quick_xml::escape::escape(val))
                         }
-                        datafusion::arrow::datatypes::DataType::LargeUtf8 => todo!(),
-                        datafusion::arrow::datatypes::DataType::List(_) => todo!(),
-                        datafusion::arrow::datatypes::DataType::FixedSizeList(_, _) => todo!(),
-                        datafusion::arrow::datatypes::DataType::LargeList(_) => todo!(),
-                        datafusion::arrow::datatypes::DataType::Struct(_) => todo!(),
-                        datafusion::arrow::datatypes::DataType::Union(_, _) => todo!(),
-                        datafusion::arrow::datatypes::DataType::Dictionary(_, _) => todo!(),
-                        datafusion::arrow::datatypes::DataType::Decimal128(_, _) => todo!(),
-                        datafusion::arrow::datatypes::DataType::Decimal256(_, _) => todo!(),
-                        datafusion::arrow::datatypes::DataType::Map(_, _) => todo!(),
-                        datafusion::arrow::datatypes::DataType::RunEndEncoded(_, _) => todo!(),
+                        DataType::LargeUtf8 => todo!(),
+                        DataType::List(_) => todo!(),
+                        DataType::FixedSizeList(_, _) => todo!(),
+                        DataType::LargeList(_) => todo!(),
+                        DataType::Struct(_) => todo!(),
+                        DataType::Union(_, _) => todo!(),
+                        DataType::Dictionary(_, _) => todo!(),
+                        DataType::Decimal128(_, _) => todo!(),
+                        DataType::Decimal256(_, _) => todo!(),
+                        DataType::Map(_, _) => todo!(),
+                        DataType::RunEndEncoded(_, _) => todo!(),
                     }
                 };
 
@@ -207,6 +262,7 @@ where
                 writer.write_event(Event::End(BytesEnd::new(ctag)))?;
             }
 
+            writer.write_event(Event::End(BytesEnd::new("m:properties")))?;
             writer.write_event(Event::End(BytesEnd::new("content")))?;
             writer.write_event(Event::End(BytesEnd::new("entry")))?;
         }
@@ -225,4 +281,9 @@ where
     let arr = arr.as_primitive::<T>();
     let val = arr.value(row).to_string();
     BytesText::from_escaped(val)
+}
+
+fn encode_date_time(dt: &DateTime<Utc>) -> BytesText<'static> {
+    let s = dt.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    BytesText::from_escaped(s)
 }

@@ -1,4 +1,4 @@
 pub mod atom;
+pub mod collection;
 pub mod metadata;
-pub mod query;
 pub mod service;
