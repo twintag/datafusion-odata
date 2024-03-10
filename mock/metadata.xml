@@ -11,15 +11,15 @@
             </Key>
             <Property Name="offset" Type="Edm.Int64" Nullable="true"/>
             <Property Name="op" Type="Edm.Int32" Nullable="false"/>
-            <Property Name="system_time" Type="Edm.Boolean" Nullable="false"/>
-            <Property Name="event_time" Type="Edm.Boolean" Nullable="true"/>
+            <Property Name="system_time" Type="Edm.DateTime" Nullable="false"/>
+            <Property Name="event_time" Type="Edm.DateTime" Nullable="true"/>
             <Property Name="from_symbol" Type="Edm.String" Nullable="false" FixedLength="false" Unicode="true"/>
             <Property Name="to_symbol" Type="Edm.String" Nullable="false" FixedLength="false" Unicode="true"/>
-            <Property Name="open" Type="Edm.Boolean" Nullable="true"/>
-            <Property Name="high" Type="Edm.Boolean" Nullable="true"/>
-            <Property Name="low" Type="Edm.Boolean" Nullable="true"/>
-            <Property Name="close" Type="Edm.Boolean" Nullable="true"/>
-            <Property Name="volume" Type="Edm.Boolean" Nullable="true"/>
+            <Property Name="open" Type="Edm.Double" Nullable="true"/>
+            <Property Name="high" Type="Edm.Double" Nullable="true"/>
+            <Property Name="low" Type="Edm.Double" Nullable="true"/>
+            <Property Name="close" Type="Edm.Double" Nullable="true"/>
+            <Property Name="volume" Type="Edm.Double" Nullable="true"/>
             </EntityType>
             <EntityType Name="covid19_canada">
             <Key>
@@ -27,8 +27,8 @@
             </Key>
             <Property Name="offset" Type="Edm.Int64" Nullable="false"/>
             <Property Name="op" Type="Edm.Int32" Nullable="false"/>
-            <Property Name="system_time" Type="Edm.Boolean" Nullable="false"/>
-            <Property Name="reported_date" Type="Edm.Boolean" Nullable="false"/>
+            <Property Name="system_time" Type="Edm.DateTime" Nullable="false"/>
+            <Property Name="reported_date" Type="Edm.DateTime" Nullable="false"/>
             <Property Name="province" Type="Edm.String" Nullable="false" FixedLength="false" Unicode="true"/>
             <Property Name="total_daily" Type="Edm.Int64" Nullable="false"/>
             </EntityType>

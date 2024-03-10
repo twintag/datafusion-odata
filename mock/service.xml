@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<service xml:base="https://services.odata.org/V3/OData/OData.svc/"
+<service xml:base="http://a5d4b8ec90d5144a08efb47e789d49d5-1706314482.us-west-2.elb.amazonaws.com/mock/"
 	xmlns="http://www.w3.org/2007/app"
 	xmlns:atom="http://www.w3.org/2005/Atom">
 	<workspace>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xml:base="http://a5d4b8ec90d5144a08efb47e789d49d5-1706314482.us-west-2.elb.amazonaws.com/"
+	xmlns="http://www.w3.org/2005/Atom"
+	xmlns:d="http://schemas.microsoft.com/ado/2007/08/dataservices"
+	xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata">
+	<id>http://a5d4b8ec90d5144a08efb47e789d49d5-1706314482.us-west-2.elb.amazonaws.com/tickers_spy/</id>
+	<title type="text">tickers_spy</title>
+	<updated>2024-03-10T00:36:45Z</updated>
+	<link rel="self" title="tickers_spy" href="tickers_spy" />
+	<entry>
+		<id>http://a5d4b8ec90d5144a08efb47e789d49d5-1706314482.us-west-2.elb.amazonaws.com/tickers_spy(0)</id>
+		<category term="ODataDemo.tickers_spy" scheme="http://schemas.microsoft.com/ado/2007/08/dataservices/scheme" />
+		<link rel="edit" title="tickers_spy" href="tickers_spy(0)" />
+		<title />
+		<updated>2024-03-10T00:36:45Z</updated>
+		<author>
+			<name />
+		</author>
+		<content type="application/xml">
+			<m:properties>
+				<d:offset m:type="Edm.Int64">0</d:offset>
+				<d:from_symbol m:type="Edm.String">spy</d:from_symbol>
+				<d:to_symbol m:type="Edm.String">usd</d:to_symbol>
+				<d:close m:type="Edm.Double">135.5625</d:close>
+			</m:properties>
+		</content>
+	</entry>
+	<entry>
+		<id>http://a5d4b8ec90d5144a08efb47e789d49d5-1706314482.us-west-2.elb.amazonaws.com/tickers_spy(1)</id>
+		<category term="ODataDemo.tickers_spy" scheme="http://schemas.microsoft.com/ado/2007/08/dataservices/scheme" />
+		<link rel="edit" title="tickers_spy" href="tickers_spy(1)" />
+		<title />
+		<updated>2024-03-10T00:36:45Z</updated>
+		<author>
+			<name />
+		</author>
+		<content type="application/xml">
+			<m:properties>
+				<d:offset m:type="Edm.Int64">1</d:offset>
+				<d:from_symbol m:type="Edm.String">spy</d:from_symbol>
+				<d:to_symbol m:type="Edm.String">usd</d:to_symbol>
+				<d:close m:type="Edm.Double">136.5622</d:close>
+			</m:properties>
+		</content>
+	</entry>
+</feed>

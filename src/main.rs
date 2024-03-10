@@ -30,6 +30,18 @@ async fn mock_odata_metadata_handler() -> axum::response::Response<String> {
         .unwrap()
 }
 
+async fn mock_odata_collection_handler() -> axum::response::Response<String> {
+    let body = std::fs::read_to_string("mock/collection.xml").unwrap();
+
+    axum::response::Response::builder()
+        .header(
+            http::header::CONTENT_TYPE.as_str(),
+            "application/atom+xml;type=feed;charset=utf-8",
+        )
+        .body(body)
+        .unwrap()
+}
+
 async fn odata_service_handler(
     axum::extract::State(ctx): axum::extract::State<SessionContext>,
     axum::extract::TypedHeader(host): axum::extract::TypedHeader<axum::headers::Host>,
@@ -261,6 +273,14 @@ async fn main() {
         .route(
             "/mock/$metadata",
             axum::routing::get(mock_odata_metadata_handler),
+        )
+        .route(
+            "/mock/:collection",
+            axum::routing::get(mock_odata_collection_handler),
+        )
+        .route(
+            "/mock/:collection/",
+            axum::routing::get(mock_odata_collection_handler),
         )
         .route("/:collection", axum::routing::get(odata_collection_handler))
         .route(
