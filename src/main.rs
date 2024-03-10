@@ -139,7 +139,7 @@ async fn odata_collection_handler(
     select_cols.retain(|c| !c.is_empty());
 
     let skip = query.skip.unwrap_or_default() as usize;
-    let limit = query.top.map(|v| v as usize);
+    let limit = query.top.unwrap_or(100) as usize;
 
     let df = ctx.table(&collection).await.unwrap();
     let df = if select_cols.is_empty() {
@@ -162,7 +162,7 @@ async fn odata_collection_handler(
         df
     };
 
-    let df = df.limit(skip, limit).unwrap();
+    let df = df.limit(skip, Some(limit)).unwrap();
     let schema: Schema = df.schema().clone().into();
 
     let record_batches = df.collect().await.unwrap();
