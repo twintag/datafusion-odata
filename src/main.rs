@@ -1,6 +1,7 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use datafusion::{arrow::datatypes::Schema, catalog::schema::SchemaProvider, prelude::*};
+use http::{uri::PathAndQuery, Uri};
 use test_odata::odata::query::*;
 
 const XML_DECL: &str = r#"<?xml version="1.0" encoding="utf-8"?>"#;
@@ -128,6 +129,8 @@ async fn odata_metadata_handler(
 
 async fn odata_collection_handler(
     axum::extract::State(ctx): axum::extract::State<SessionContext>,
+    axum::extract::TypedHeader(host): axum::extract::TypedHeader<axum::headers::Host>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     axum::extract::Path(collection): axum::extract::Path<String>,
     axum::extract::Query(query): axum::extract::Query<ODataQuery>,
     headers: axum::http::HeaderMap,
@@ -167,8 +170,17 @@ async fn odata_collection_handler(
 
     let record_batches = df.collect().await.unwrap();
 
+    // Remove query params
+    let mut parts = uri.into_parts();
+    parts.path_and_query = parts
+        .path_and_query
+        .map(|pq| PathAndQuery::from_str(pq.path()).unwrap());
+    let uri = Uri::from_parts(parts).unwrap();
+    let base_url = format!("http://{host}{uri}");
+
     let mut writer = quick_xml::Writer::new(Vec::<u8>::new());
-    test_odata::odata::atom::feed_from_records(&schema, record_batches, &mut writer).unwrap();
+    test_odata::odata::atom::feed_from_records(&schema, record_batches, &base_url, &mut writer)
+        .unwrap();
 
     let buf = writer.into_inner();
     let body = String::from_utf8(buf).unwrap();

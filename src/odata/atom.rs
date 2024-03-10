@@ -51,6 +51,7 @@ use quick_xml::events::*;
 pub fn feed_from_records<W>(
     schema: &Schema,
     record_batches: Vec<RecordBatch>,
+    base_url: &str,
     writer: &mut quick_xml::Writer<W>,
 ) -> quick_xml::Result<()>
 where
@@ -76,7 +77,19 @@ where
         None,
     )))?;
 
-    writer.write_event(Event::Start(BytesStart::new("feed")))?;
+    let mut feed = BytesStart::new("feed");
+    feed.push_attribute(("xml:base", base_url));
+    feed.push_attribute(("xmlns", "http://www.w3.org/2005/Atom"));
+    feed.push_attribute((
+        "xmlns:d",
+        "http://schemas.microsoft.com/ado/2007/08/dataservices",
+    ));
+    feed.push_attribute((
+        "xmlns:m",
+        "http://schemas.microsoft.com/ado/2007/08/dataservices/metadata",
+    ));
+
+    writer.write_event(Event::Start(feed))?;
 
     writer
         .create_element("id")
