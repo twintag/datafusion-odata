@@ -5,16 +5,14 @@ use datafusion::{arrow::datatypes::Schema, catalog::schema::SchemaProvider, prel
 
 use test_odata::odata::collection::QueryParams;
 
-const XML_DECL: &str = r#"<?xml version="1.0" encoding="utf-8"?>"#;
+const MEDIA_TYPE_ATOM: &str = "application/atom+xml;type=feed;charset=utf-8";
+const MEDIA_TYPE_XML: &str = "application/xml;charset=utf-8";
 
 async fn mock_odata_service_handler() -> axum::response::Response<String> {
     let body = std::fs::read_to_string("mock/service.xml").unwrap();
 
     axum::response::Response::builder()
-        .header(
-            http::header::CONTENT_TYPE.as_str(),
-            "application/xml;charset=utf-8",
-        )
+        .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_XML)
         .body(body)
         .unwrap()
 }
@@ -23,10 +21,7 @@ async fn mock_odata_metadata_handler() -> axum::response::Response<String> {
     let body = std::fs::read_to_string("mock/metadata.xml").unwrap();
 
     axum::response::Response::builder()
-        .header(
-            http::header::CONTENT_TYPE.as_str(),
-            "application/xml;charset=utf-8",
-        )
+        .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_XML)
         .body(body)
         .unwrap()
 }
@@ -35,10 +30,7 @@ async fn mock_odata_collection_handler() -> axum::response::Response<String> {
     let body = std::fs::read_to_string("mock/collection.xml").unwrap();
 
     axum::response::Response::builder()
-        .header(
-            http::header::CONTENT_TYPE.as_str(),
-            "application/atom+xml;type=feed;charset=utf-8",
-        )
+        .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_ATOM)
         .body(body)
         .unwrap()
 }
@@ -68,14 +60,9 @@ async fn odata_service_handler(
         },
     );
 
-    let xml = quick_xml::se::to_string_with_root("service", &service).unwrap();
-
     axum::response::Response::builder()
-        .header(
-            http::header::CONTENT_TYPE.as_str(),
-            "application/xml;charset=utf-8",
-        )
-        .body(format!("{XML_DECL}{xml}"))
+        .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_XML)
+        .body(write_object_to_xml("service", &service))
         .unwrap()
 }
 
@@ -128,14 +115,9 @@ async fn odata_metadata_handler(
         vec![entity_container],
     )]));
 
-    let xml = quick_xml::se::to_string_with_root("edmx:Edmx", &metadata).unwrap();
-
     axum::response::Response::builder()
-        .header(
-            http::header::CONTENT_TYPE.as_str(),
-            "application/xml;charset=utf-8",
-        )
-        .body(format!("{XML_DECL}{xml}"))
+        .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_XML)
+        .body(write_object_to_xml("edmx:Edmx", &metadata))
         .unwrap()
 }
 
@@ -195,12 +177,25 @@ async fn odata_collection_handler(
     let body = String::from_utf8(buf).unwrap();
 
     axum::response::Response::builder()
-        .header(
-            http::header::CONTENT_TYPE.as_str(),
-            "application/atom+xml;type=feed;charset=utf-8",
-        )
+        .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_ATOM)
         .body(body)
         .unwrap()
+}
+
+fn write_object_to_xml<T>(tag: &str, object: &T) -> String
+where
+    T: serde::ser::Serialize,
+{
+    let mut writer = quick_xml::Writer::new(Vec::<u8>::new());
+    writer
+        .write_event(quick_xml::events::Event::Decl(
+            quick_xml::events::BytesDecl::new("1.0", Some("utf-8"), None),
+        ))
+        .unwrap();
+
+    writer.write_serializable(tag, object).unwrap();
+
+    String::from_utf8(writer.into_inner()).unwrap()
 }
 
 #[derive(Clone)]
