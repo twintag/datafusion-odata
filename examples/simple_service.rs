@@ -5,7 +5,9 @@ use datafusion::{
     arrow::datatypes::Schema, catalog::schema::SchemaProvider, prelude::*, sql::TableReference,
 };
 
-use test_odata::odata::collection::QueryParams;
+use datafusion_odata::collection::QueryParams;
+use datafusion_odata::metadata::*;
+use datafusion_odata::service::*;
 
 const MEDIA_TYPE_ATOM: &str = "application/atom+xml;type=feed;charset=utf-8";
 const MEDIA_TYPE_XML: &str = "application/xml;charset=utf-8";
@@ -49,8 +51,6 @@ async fn odata_service_handler(
     axum::Extension(odata_ctx): axum::Extension<ODataContext>,
     axum::extract::TypedHeader(host): axum::extract::TypedHeader<axum::headers::Host>,
 ) -> axum::response::Response<String> {
-    use test_odata::odata::service::*;
-
     let (_, schema) = odata_ctx.get_schema();
 
     let mut collections = Vec::new();
@@ -79,8 +79,6 @@ async fn odata_service_handler(
 async fn odata_metadata_handler(
     axum::Extension(odata_ctx): axum::Extension<ODataContext>,
 ) -> axum::response::Response<String> {
-    use test_odata::odata::metadata::*;
-
     let (schema_name, schema) = odata_ctx.get_schema();
 
     let mut entity_types = Vec::new();
@@ -119,11 +117,13 @@ async fn odata_metadata_handler(
         });
     }
 
-    let metadata = Edmx::new(DataServices::new(vec![Schema::new(
-        schema_name.clone(),
-        entity_types,
-        vec![entity_container],
-    )]));
+    let metadata = Edmx::new(DataServices::new(vec![
+        datafusion_odata::metadata::Schema::new(
+            schema_name.clone(),
+            entity_types,
+            vec![entity_container],
+        ),
+    ]));
 
     axum::response::Response::builder()
         .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_XML)
@@ -191,7 +191,7 @@ async fn odata_collection_handler(
         .sum();
 
     let mut writer = quick_xml::Writer::new(Vec::<u8>::new());
-    test_odata::odata::atom::atom_feed_from_records(
+    datafusion_odata::atom::atom_feed_from_records(
         &schema,
         record_batches,
         &odata_ctx.service_base_url(&host),
@@ -368,7 +368,7 @@ async fn main() {
             service_path: "/".to_string(),
         }));
 
-    tracing::info!("Runninng");
+    tracing::info!("Runninng on http://localhost:3000/");
     let server = axum::Server::bind(&([0, 0, 0, 0], 3000).into()).serve(app.into_make_service());
 
     if let Err(err) = server.await {

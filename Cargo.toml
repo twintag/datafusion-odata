@@ -11,18 +11,18 @@ license = "Apache-2.0"
 [dependencies]
 axum = { version = "0.6", features = ["headers"] }
 chrono = { version = "0.4", default-features = false }
-datafusion = { version = "36", default-features = false, features = ["parquet"] }
+datafusion = { version = "36", default-features = false }
 http = "0.2"
-quick-xml = { version = "*", features = ["serialize"] }
+quick-xml = { version = "0.31", features = ["serialize"] }
 serde = { version = "1", features = ["derive"] }
-tokio = { version = "1", default-features = false, features = ["rt-multi-thread"] }
-tokio-util = { version = "0.7", default-features = false, features = ["codec", "compat", "io"] }
-tower = "0.4"
-tower-http = { version = "0.4", features = ["trace", "cors"] }
 tracing = "0.1"
 
 [dev-dependencies]
+datafusion = { version = "36", default-features = false, features = ["parquet"] }
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "fmt", "ansi", "env-filter"] }
 tracing-log = "0.2"
 tracing-bunyan-formatter = "0.3"
+tokio = { version = "1", default-features = false, features = ["rt-multi-thread"] }
+tower = "0.4"
+tower-http = { version = "0.4", features = ["trace", "cors"] }
