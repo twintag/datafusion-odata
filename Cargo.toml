@@ -1,7 +1,12 @@
 [package]
-name = "test-odata"
+name = "datafusion-odata"
 version = "0.1.0"
 edition = "2021"
+repository = "https://github.com/kamu-data/datafusion-odata"
+description = "OData protocol adapter for Apache Datafusion"
+keywords = ["datafusion", "sql", "arrow", "odata", "rest"]
+authors = ["Sergii Mikhtoniuk <mikhtoniuk@gmail.com>"]
+license = "Apache-2.0"
 
 [dependencies]
 axum = { version = "0.6", features = ["headers"] }
