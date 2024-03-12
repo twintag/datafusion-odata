@@ -9,6 +9,7 @@ authors = ["Sergii Mikhtoniuk <mikhtoniuk@gmail.com>"]
 license = "Apache-2.0"
 
 [dependencies]
+async-trait = "0.1"
 axum = { version = "0.6", features = ["headers"] }
 chrono = { version = "0.4", default-features = false }
 datafusion = { version = "36", default-features = false }

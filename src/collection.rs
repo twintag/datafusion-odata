@@ -1,5 +1,9 @@
+use datafusion::prelude::*;
+
+///////////////////////////////////////////////////////////////////////////////
+
 #[derive(Debug, serde::Deserialize)]
-pub struct QueryParams {
+pub struct QueryParamsRaw {
     #[serde(rename = "$select")]
     pub select: Option<String>,
     #[serde(rename = "$orderby")]
@@ -10,8 +14,10 @@ pub struct QueryParams {
     pub top: Option<u64>,
 }
 
-impl QueryParams {
-    pub fn decode(self) -> QueryParamsDecoded {
+///////////////////////////////////////////////////////////////////////////////
+
+impl QueryParamsRaw {
+    pub fn decode(self) -> QueryParams {
         let select = self.select.unwrap_or_default();
         let mut select: Vec<_> = select.split(',').map(|s| s.to_string()).collect();
         select.retain(|i| !i.is_empty());
@@ -35,7 +41,7 @@ impl QueryParams {
         let skip = self.skip.map(|v| v as usize);
         let top = self.top.map(|v| v as usize);
 
-        QueryParamsDecoded {
+        QueryParams {
             select,
             order_by,
             skip,
@@ -44,11 +50,53 @@ impl QueryParams {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 #[derive(Debug)]
-pub struct QueryParamsDecoded {
+pub struct QueryParams {
+    /// Column names
     pub select: Vec<String>,
-    // (column, ascending)
+    /// Tuples (column_name, ascending)
     pub order_by: Vec<(String, bool)>,
+    /// Number of records to skip
     pub skip: Option<usize>,
+    /// Maximum number of records to return
     pub top: Option<usize>,
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+impl QueryParams {
+    pub fn apply(
+        self,
+        df: DataFrame,
+        default_rows: usize,
+        max_rows: usize,
+    ) -> datafusion::error::Result<DataFrame> {
+        // Select columns
+        let df = if self.select.is_empty() {
+            df
+        } else {
+            let select: Vec<_> = self.select.iter().map(String::as_str).collect();
+            df.select_columns(&select)?
+        };
+
+        // Order by
+        let df = if self.order_by.is_empty() {
+            df
+        } else {
+            df.sort(
+                self.order_by
+                    .into_iter()
+                    .map(|(c, asc)| col(c).sort(asc, true))
+                    .collect(),
+            )?
+        };
+
+        // Skip / limit
+        df.limit(
+            self.skip.unwrap_or(0),
+            Some(std::cmp::min(self.top.unwrap_or(default_rows), max_rows)),
+        )
+    }
 }

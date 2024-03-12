@@ -7,6 +7,10 @@ use datafusion::arrow::{
 };
 use quick_xml::events::*;
 
+use crate::context::CollectionContext;
+
+///////////////////////////////////////////////////////////////////////////////
+
 // https://www.odata.org/documentation/odata-version-3-0/atom-format/
 //
 // <?xml version="1.0" encoding="utf-8"?>
@@ -58,20 +62,22 @@ use quick_xml::events::*;
 //     </content>
 //   </entry>
 // </feed>
-pub fn atom_feed_from_records<W>(
+pub fn write_atom_feed_from_records<W>(
     schema: &Schema,
     record_batches: Vec<RecordBatch>,
-    service_base_url: &str,
-    collection_base_url: &str,
-    collection_name: &str,
-    type_name: &str,
-    type_namespace: &str,
+    ctx: &dyn CollectionContext,
     updated_time: DateTime<Utc>,
     writer: &mut quick_xml::Writer<W>,
 ) -> quick_xml::Result<()>
 where
     W: std::io::Write,
 {
+    let service_base_url = ctx.service_base_url();
+    let collection_base_url = ctx.collection_base_url();
+    let collection_name = ctx.collection_name();
+    let type_name = ctx.collection_name();
+    let type_namespace = ctx.collection_namespace();
+
     assert!(service_base_url.starts_with("http"));
     assert!(collection_base_url.starts_with("http"));
     assert!(service_base_url.ends_with('/'));
@@ -100,7 +106,7 @@ where
     )))?;
 
     let mut feed = BytesStart::new("feed");
-    feed.push_attribute(("xml:base", service_base_url));
+    feed.push_attribute(("xml:base", service_base_url.as_str()));
     feed.push_attribute(("xmlns", "http://www.w3.org/2005/Atom"));
     feed.push_attribute((
         "xmlns:d",
@@ -119,11 +125,11 @@ where
     // <link rel="self" title="tickers_spy" href="tickers_spy" />
     writer
         .create_element("id")
-        .write_text_content(BytesText::from_escaped(collection_base_url))?;
+        .write_text_content(BytesText::from_escaped(&collection_base_url))?;
     writer
         .create_element("title")
         .with_attribute(("type", "text"))
-        .write_text_content(BytesText::from_escaped(collection_name))?;
+        .write_text_content(BytesText::from_escaped(&collection_name))?;
     writer
         .create_element("updated")
         .write_text_content(encode_date_time(&updated_time))?;
@@ -131,8 +137,8 @@ where
         .create_element("link")
         .with_attributes([
             ("rel", "self"),
-            ("title", collection_name),
-            ("href", collection_name),
+            ("title", collection_name.as_str()),
+            ("href", collection_name.as_str()),
         ])
         .write_empty()?;
 
@@ -171,7 +177,7 @@ where
                 .create_element("link")
                 .with_attributes([
                     ("rel", "edit"),
-                    ("title", collection_name),
+                    ("title", &collection_name),
                     ("href", &entry_url_rel),
                 ])
                 .write_empty()?;

@@ -40,5 +40,6 @@ This code is super raw and experimental. Very far from prod-ready. Use at your o
   - [x] `$orderby`
   - [x] `$skip`
   - [x] `$top`
+  - [ ] `$filter`
   - [ ] pagination
   - [ ] real object IDs
