@@ -72,16 +72,20 @@ pub fn write_atom_feed_from_records<W>(
 where
     W: std::io::Write,
 {
-    let service_base_url = ctx.service_base_url();
-    let collection_base_url = ctx.collection_base_url();
+    let mut service_base_url = ctx.service_base_url();
+    let mut collection_base_url = ctx.collection_base_url();
     let collection_name = ctx.collection_name();
     let type_name = ctx.collection_name();
     let type_namespace = ctx.collection_namespace();
 
     assert!(service_base_url.starts_with("http"));
     assert!(collection_base_url.starts_with("http"));
-    assert!(service_base_url.ends_with('/'));
-    assert!(!collection_base_url.ends_with('/'));
+    if !service_base_url.ends_with('/') {
+        service_base_url.push('/');
+    }
+    if !collection_base_url.ends_with('/') {
+        collection_base_url.push('/');
+    }
 
     let fq_type = format!("{type_namespace}.{type_name}");
 
