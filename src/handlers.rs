@@ -9,26 +9,26 @@ use crate::{collection::*, context::*, metadata::*, service::*};
 pub const MEDIA_TYPE_ATOM: &str = "application/atom+xml;type=feed;charset=utf-8";
 pub const MEDIA_TYPE_XML: &str = "application/xml;charset=utf-8";
 
+const DEFAULT_COLLECTION_RESPONSE_SIZE: usize = 512_000;
+
 ///////////////////////////////////////////////////////////////////////////////
 
 pub async fn odata_service_handler(
     axum::Extension(odata_ctx): axum::Extension<Arc<dyn ServiceContext>>,
 ) -> axum::response::Response<String> {
-    let (_schema_name, schema) = odata_ctx.schema();
-
     let mut collections = Vec::new();
 
-    for tname in schema.table_names() {
+    for (collection_name, _) in odata_ctx.list_collections().await {
         collections.push(Collection {
-            href: tname.clone(),
-            title: tname,
+            href: collection_name.clone(),
+            title: collection_name,
         })
     }
 
     let service = Service::new(
         odata_ctx.service_base_url(),
         Workspace {
-            title: "Default".to_string(),
+            title: DEFAULT_NAMESPACE.to_string(),
             collections,
         },
     );
@@ -44,21 +44,17 @@ pub async fn odata_service_handler(
 pub async fn odata_metadata_handler(
     axum::Extension(odata_ctx): axum::Extension<Arc<dyn ServiceContext>>,
 ) -> axum::response::Response<String> {
-    let (schema_name, schema) = odata_ctx.schema();
-
     let mut entity_types = Vec::new();
     let mut entity_container = EntityContainer {
-        name: schema_name.clone(),
+        name: DEFAULT_NAMESPACE.to_string(),
         is_default: true,
         entity_set: Vec::new(),
     };
 
-    for table_name in schema.table_names() {
-        let table = schema.table(&table_name).await.unwrap();
-
+    for (collection_name, schema) in odata_ctx.list_collections().await {
         let mut properties = Vec::new();
 
-        for field in table.schema().fields() {
+        for field in schema.fields() {
             let p = Property::primitive(
                 field.name(),
                 to_edm_type(field.data_type()),
@@ -69,7 +65,7 @@ pub async fn odata_metadata_handler(
         }
 
         entity_types.push(EntityType {
-            name: table_name.clone(),
+            name: collection_name.clone(),
             key: EntityKey::new(vec![PropertyRef {
                 name: "offset".to_string(),
             }]),
@@ -77,13 +73,13 @@ pub async fn odata_metadata_handler(
         });
 
         entity_container.entity_set.push(EntitySet {
-            name: table_name.clone(),
-            entity_type: format!("{schema_name}.{table_name}"),
+            name: collection_name.clone(),
+            entity_type: format!("{DEFAULT_NAMESPACE}.{collection_name}"),
         });
     }
 
     let metadata = Edmx::new(DataServices::new(vec![crate::metadata::Schema::new(
-        schema_name.clone(),
+        DEFAULT_NAMESPACE.to_string(),
         entity_types,
         vec![entity_container],
     )]));
@@ -147,7 +143,9 @@ fn write_object_to_xml<T>(tag: &str, object: &T) -> String
 where
     T: serde::ser::Serialize,
 {
-    let mut writer = quick_xml::Writer::new(Vec::<u8>::new());
+    let mut writer =
+        quick_xml::Writer::new(Vec::<u8>::with_capacity(DEFAULT_COLLECTION_RESPONSE_SIZE));
+
     writer
         .write_event(quick_xml::events::Event::Decl(
             quick_xml::events::BytesDecl::new("1.0", Some("utf-8"), None),

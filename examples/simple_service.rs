@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use datafusion::{catalog::schema::SchemaProvider, prelude::*, sql::TableReference};
+use datafusion::arrow::datatypes::SchemaRef;
+use datafusion::{prelude::*, sql::TableReference};
 
 use datafusion_odata::collection::*;
 use datafusion_odata::context::*;
@@ -79,12 +80,13 @@ impl ODataContext {
     }
 }
 
+#[async_trait::async_trait]
 impl ServiceContext for ODataContext {
     fn service_base_url(&self) -> String {
         self.service_base_url.clone()
     }
 
-    fn schema(&self) -> (String, Arc<dyn SchemaProvider>) {
+    async fn list_collections(&self) -> Vec<(String, SchemaRef)> {
         let cnames = self.query_ctx.catalog_names();
         assert_eq!(
             cnames.len(),
@@ -105,7 +107,13 @@ impl ServiceContext for ODataContext {
         let schema_name = snames.first().unwrap();
         let schema = catalog.schema(schema_name).unwrap();
 
-        (schema_name.clone(), schema)
+        let mut collections = Vec::new();
+        for table_name in schema.table_names() {
+            let table = schema.table(&table_name).await.unwrap();
+            collections.push((table_name, table.schema()));
+        }
+
+        collections
     }
 }
 
@@ -124,10 +132,6 @@ impl CollectionContext for ODataContext {
 
     fn collection_name(&self) -> String {
         self.collection_name.clone().unwrap()
-    }
-
-    fn collection_namespace(&self) -> String {
-        self.schema().0
     }
 
     fn collection_base_url(&self) -> String {
