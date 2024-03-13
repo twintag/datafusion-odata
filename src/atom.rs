@@ -83,8 +83,8 @@ where
     if !service_base_url.ends_with('/') {
         service_base_url.push('/');
     }
-    if !collection_base_url.ends_with('/') {
-        collection_base_url.push('/');
+    if collection_base_url.ends_with('/') {
+        collection_base_url.pop();
     }
 
     let fq_type = format!("{type_namespace}.{type_name}");
