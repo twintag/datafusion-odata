@@ -27,7 +27,7 @@ pub trait CollectionContext: ServiceContext {
 
     fn collection_name(&self) -> String;
 
-    fn collection_key(&self) -> String;
+    async fn collection_key(&self) -> String;
 
     async fn schema(&self) -> SchemaRef;
 

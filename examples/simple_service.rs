@@ -132,7 +132,7 @@ impl CollectionContext for ODataContext {
         self.collection_name.clone().unwrap()
     }
 
-    fn collection_key(&self) -> String {
+    async fn collection_key(&self) -> String {
         "offset".to_string()
     }
 
