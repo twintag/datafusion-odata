@@ -26,8 +26,8 @@ pub async fn odata_metadata_handler(
     axum::extract::State(query_ctx): axum::extract::State<SessionContext>,
     axum::extract::TypedHeader(host): axum::extract::TypedHeader<axum::headers::Host>,
 ) -> axum::response::Response<String> {
-    let ctx = Arc::new(ODataContext::new_service(query_ctx, host));
-    datafusion_odata::handlers::odata_metadata_handler(axum::Extension(ctx)).await
+    let ctx = ODataContext::new_service(query_ctx, host);
+    datafusion_odata::handlers::odata_metadata_handler(axum::Extension(Arc::new(ctx))).await
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -122,6 +122,10 @@ impl ServiceContext for ODataContext {
 
 #[async_trait::async_trait]
 impl CollectionContext for ODataContext {
+    fn service_base_url(&self) -> String {
+        self.service_base_url.clone()
+    }
+
     fn collection_base_url(&self) -> String {
         let service_base_url = &self.service_base_url;
         let collection_name = self.collection_name.as_deref().unwrap();

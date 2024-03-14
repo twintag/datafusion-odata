@@ -18,7 +18,9 @@ pub trait ServiceContext: Send + Sync {
 }
 
 #[async_trait::async_trait]
-pub trait CollectionContext: ServiceContext {
+pub trait CollectionContext: Send + Sync {
+    fn service_base_url(&self) -> String;
+
     fn collection_base_url(&self) -> String;
 
     fn collection_namespace(&self) -> String {
