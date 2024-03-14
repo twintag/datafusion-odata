@@ -242,18 +242,10 @@ async fn main() {
             "/mock/:collection",
             axum::routing::get(mock_odata_collection_handler),
         )
-        .route(
-            "/mock/:collection/",
-            axum::routing::get(mock_odata_collection_handler),
-        )
         // Real
         .route("/", axum::routing::get(odata_service_handler))
         .route("/$metadata", axum::routing::get(odata_metadata_handler))
         .route("/:collection", axum::routing::get(odata_collection_handler))
-        .route(
-            "/:collection/",
-            axum::routing::get(odata_collection_handler),
-        )
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .layer(
             tower_http::cors::CorsLayer::new()
