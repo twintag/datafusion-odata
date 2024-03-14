@@ -18,10 +18,10 @@ pub async fn odata_service_handler(
 ) -> axum::response::Response<String> {
     let mut collections = Vec::new();
 
-    for (collection_name, _) in odata_ctx.list_collections().await {
+    for coll in odata_ctx.list_collections().await {
         collections.push(Collection {
-            href: collection_name.clone(),
-            title: collection_name,
+            href: coll.collection_name(),
+            title: coll.collection_name(),
         })
     }
 
@@ -51,10 +51,11 @@ pub async fn odata_metadata_handler(
         entity_set: Vec::new(),
     };
 
-    for (collection_name, schema) in odata_ctx.list_collections().await {
+    for coll in odata_ctx.list_collections().await {
+        let collection_name = coll.collection_name();
         let mut properties = Vec::new();
 
-        for field in schema.fields() {
+        for field in coll.schema().await.fields() {
             let p = Property::primitive(
                 field.name(),
                 to_edm_type(field.data_type()),
@@ -67,7 +68,7 @@ pub async fn odata_metadata_handler(
         entity_types.push(EntityType {
             name: collection_name.clone(),
             key: EntityKey::new(vec![PropertyRef {
-                name: "offset".to_string(),
+                name: coll.collection_name(),
             }]),
             properties,
         });

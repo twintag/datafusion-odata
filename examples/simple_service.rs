@@ -86,7 +86,7 @@ impl ServiceContext for ODataContext {
         self.service_base_url.clone()
     }
 
-    async fn list_collections(&self) -> Vec<(String, SchemaRef)> {
+    async fn list_collections(&self) -> Vec<Arc<dyn CollectionContext>> {
         let cnames = self.query_ctx.catalog_names();
         assert_eq!(
             cnames.len(),
@@ -107,10 +107,13 @@ impl ServiceContext for ODataContext {
         let schema_name = snames.first().unwrap();
         let schema = catalog.schema(schema_name).unwrap();
 
-        let mut collections = Vec::new();
+        let mut collections: Vec<Arc<dyn CollectionContext>> = Vec::new();
         for table_name in schema.table_names() {
-            let table = schema.table(&table_name).await.unwrap();
-            collections.push((table_name, table.schema()));
+            collections.push(Arc::new(ODataContext {
+                query_ctx: self.query_ctx.clone(),
+                service_base_url: self.service_base_url.clone(),
+                collection_name: Some(table_name),
+            }));
         }
 
         collections
@@ -119,6 +122,30 @@ impl ServiceContext for ODataContext {
 
 #[async_trait::async_trait]
 impl CollectionContext for ODataContext {
+    fn collection_base_url(&self) -> String {
+        let service_base_url = &self.service_base_url;
+        let collection_name = self.collection_name.as_deref().unwrap();
+        format!("{service_base_url}{collection_name}")
+    }
+
+    fn collection_name(&self) -> String {
+        self.collection_name.clone().unwrap()
+    }
+
+    fn collection_key(&self) -> String {
+        "offset".to_string()
+    }
+
+    async fn schema(&self) -> SchemaRef {
+        self.query_ctx
+            .table_provider(TableReference::bare(
+                self.collection_name.as_deref().unwrap(),
+            ))
+            .await
+            .unwrap()
+            .schema()
+    }
+
     async fn query(&self, query: QueryParams) -> datafusion::error::Result<DataFrame> {
         let df = self
             .query_ctx
@@ -128,16 +155,6 @@ impl CollectionContext for ODataContext {
             .await?;
 
         query.apply(df, 100, usize::MAX)
-    }
-
-    fn collection_name(&self) -> String {
-        self.collection_name.clone().unwrap()
-    }
-
-    fn collection_base_url(&self) -> String {
-        let service_base_url = &self.service_base_url;
-        let collection_name = self.collection_name.as_deref().unwrap();
-        format!("{service_base_url}{collection_name}")
     }
 }
 
