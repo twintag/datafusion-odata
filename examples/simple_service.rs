@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use chrono::{DateTime, Utc};
 use datafusion::arrow::datatypes::SchemaRef;
 use datafusion::{prelude::*, sql::TableReference};
 
@@ -138,6 +139,10 @@ impl CollectionContext for ODataContext {
 
     async fn collection_key(&self) -> String {
         "offset".to_string()
+    }
+
+    async fn last_updated_time(&self) -> DateTime<Utc> {
+        Utc::now()
     }
 
     async fn schema(&self) -> SchemaRef {

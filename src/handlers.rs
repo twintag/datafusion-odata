@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use chrono::Utc;
-
 use crate::{collection::*, context::*, metadata::*, service::*};
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -117,7 +115,7 @@ pub async fn odata_collection_handler(
         &schema,
         record_batches,
         ctx.as_ref(),
-        Utc::now(),
+        ctx.last_updated_time().await,
         &mut writer,
     )
     .unwrap();

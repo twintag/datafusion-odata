@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use chrono::{DateTime, Utc};
 use datafusion::{arrow::datatypes::SchemaRef, dataframe::DataFrame};
 
 use crate::collection::QueryParams;
@@ -30,6 +31,8 @@ pub trait CollectionContext: Send + Sync {
     fn collection_name(&self) -> String;
 
     async fn collection_key(&self) -> String;
+
+    async fn last_updated_time(&self) -> DateTime<Utc>;
 
     async fn schema(&self) -> SchemaRef;
 
