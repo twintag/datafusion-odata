@@ -235,6 +235,10 @@ impl ServiceContext for ODataContext {
 
         collections
     }
+
+    fn on_unsupported_feature(&self) -> OnUnsupported {
+        OnUnsupported::Error
+    }
 }
 
 #[async_trait::async_trait]
@@ -282,5 +286,9 @@ impl CollectionContext for ODataContext {
             .await?;
 
         query.apply(df, 100, usize::MAX)
+    }
+
+    fn on_unsupported_feature(&self) -> OnUnsupported {
+        OnUnsupported::Error
     }
 }

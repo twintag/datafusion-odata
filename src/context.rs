@@ -16,6 +16,8 @@ pub trait ServiceContext: Send + Sync {
     fn service_base_url(&self) -> String;
 
     async fn list_collections(&self) -> Vec<Arc<dyn CollectionContext>>;
+
+    fn on_unsupported_feature(&self) -> OnUnsupported;
 }
 
 #[async_trait::async_trait]
@@ -37,4 +39,13 @@ pub trait CollectionContext: Send + Sync {
     async fn schema(&self) -> SchemaRef;
 
     async fn query(&self, query: QueryParams) -> datafusion::error::Result<DataFrame>;
+
+    fn on_unsupported_feature(&self) -> OnUnsupported;
+}
+
+pub enum OnUnsupported {
+    /// Return an error or crash
+    Error,
+    /// Log error and recover as gracefully as possible
+    Warn,
 }

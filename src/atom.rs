@@ -7,7 +7,7 @@ use datafusion::arrow::{
 };
 use quick_xml::events::*;
 
-use crate::context::CollectionContext;
+use crate::context::{CollectionContext, OnUnsupported};
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -67,6 +67,7 @@ pub fn write_atom_feed_from_records<W>(
     record_batches: Vec<RecordBatch>,
     ctx: &dyn CollectionContext,
     updated_time: DateTime<Utc>,
+    on_unsupported: OnUnsupported,
     writer: &mut quick_xml::Writer<W>,
 ) -> quick_xml::Result<()>
 where
@@ -89,19 +90,30 @@ where
 
     let fq_type = format!("{type_namespace}.{type_name}");
 
-    let columns: Vec<_> = schema
-        .fields()
-        .iter()
-        .map(|f| f.name().to_string())
-        .collect();
+    let mut columns = Vec::new();
 
-    let column_tags: Vec<_> = columns.iter().map(|c| format!("d:{c}")).collect();
+    for (index, field) in schema.fields().iter().enumerate() {
+        let name = field.name().clone();
+        let tag = format!("d:{name}");
+        let typ = match super::metadata::to_edm_type(field.data_type()) {
+            Ok(typ) => typ,
+            Err(err) => match on_unsupported {
+                OnUnsupported::Error => panic!("{}", err),
+                OnUnsupported::Warn => {
+                    tracing::error!(
+                        table = collection_name,
+                        field = field.name(),
+                        error = %err,
+                        error_dbg = ?err,
+                        "Unsupported field type - skipping",
+                    );
+                    continue;
+                }
+            },
+        };
 
-    let column_types: Vec<_> = schema
-        .fields()
-        .iter()
-        .map(|f| super::metadata::to_edm_type(f.data_type()))
-        .collect();
+        columns.push((index, name, tag, typ));
+    }
 
     writer.write_event(quick_xml::events::Event::Decl(BytesDecl::new(
         "1.0",
@@ -206,8 +218,8 @@ where
             ))?;
             writer.write_event(Event::Start(BytesStart::new("m:properties")))?;
 
-            for (i, (ctag, typ)) in column_tags.iter().zip(&column_types).enumerate() {
-                let col = batch.column(i);
+            for (i, _cname, ctag, typ) in &columns {
+                let col = batch.column(*i);
 
                 let mut start = BytesStart::new(ctag);
                 start.push_attribute(("m:type", *typ));

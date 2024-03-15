@@ -170,42 +170,56 @@ pub struct EntitySet {
 ///////////////////////////////////////////////////////////////////////////////
 
 // See: https://www.odata.org/documentation/odata-version-3-0/common-schema-definition-language-csdl/
-pub fn to_edm_type(dt: &DataType) -> &'static str {
+pub fn to_edm_type(dt: &DataType) -> Result<&'static str, UnsupportedDataType> {
     match dt {
-        DataType::Null => unimplemented!(),
-        DataType::Boolean => "Edm.Boolean",
-        DataType::Int8 => unimplemented!(),
-        DataType::Int16 => "Edm.Int16",
-        DataType::Int32 => "Edm.Int32",
-        DataType::Int64 => "Edm.Int64",
-        DataType::UInt8 => unimplemented!(),
-        DataType::UInt16 => "Edm.Int16",
-        DataType::UInt32 => "Edm.Int32",
-        DataType::UInt64 => "Edm.Int64",
-        DataType::Utf8 => "Edm.String",
-        DataType::Float16 => "Edm.Single",
-        DataType::Float32 => "Edm.Single",
-        DataType::Float64 => "Edm.Double",
-        DataType::Timestamp(_, _) => "Edm.DateTime",
-        DataType::Date32 => "Edm.DateTime",
-        DataType::Date64 => "Edm.DateTime",
-        DataType::Time32(_) => unimplemented!(),
-        DataType::Time64(_) => unimplemented!(),
-        DataType::Duration(_) => unimplemented!(),
-        DataType::Interval(_) => unimplemented!(),
-        DataType::Binary => unimplemented!(),
-        DataType::FixedSizeBinary(_) => unimplemented!(),
-        DataType::LargeBinary => unimplemented!(),
-        DataType::LargeUtf8 => unimplemented!(),
-        DataType::List(_) => unimplemented!(),
-        DataType::FixedSizeList(_, _) => unimplemented!(),
-        DataType::LargeList(_) => unimplemented!(),
-        DataType::Struct(_) => unimplemented!(),
-        DataType::Union(_, _) => unimplemented!(),
-        DataType::Dictionary(_, _) => unimplemented!(),
-        DataType::Decimal128(_, _) => unimplemented!(),
-        DataType::Decimal256(_, _) => unimplemented!(),
-        DataType::Map(_, _) => unimplemented!(),
-        DataType::RunEndEncoded(_, _) => unimplemented!(),
+        DataType::Null => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::Boolean => Ok("Edm.Boolean"),
+        // TODO: Use Edm.Byte / Edm.SByte?
+        DataType::Int8 => Ok("Edm.Int16"),
+        DataType::Int16 => Ok("Edm.Int16"),
+        DataType::Int32 => Ok("Edm.Int32"),
+        DataType::Int64 => Ok("Edm.Int64"),
+        // TODO: Use Edm.Byte / Edm.SByte?
+        DataType::UInt8 => Ok("Edm.Int16"),
+        DataType::UInt16 => Ok("Edm.Int16"),
+        DataType::UInt32 => Ok("Edm.Int32"),
+        DataType::UInt64 => Ok("Edm.Int64"),
+        DataType::Utf8 => Ok("Edm.String"),
+        DataType::Float16 => Ok("Edm.Single"),
+        DataType::Float32 => Ok("Edm.Single"),
+        DataType::Float64 => Ok("Edm.Double"),
+        DataType::Timestamp(_, _) => Ok("Edm.DateTime"),
+        DataType::Date32 => Ok("Edm.DateTime"),
+        DataType::Date64 => Ok("Edm.DateTime"),
+        DataType::Time32(_) => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::Time64(_) => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::Duration(_) => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::Interval(_) => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::Binary => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::FixedSizeBinary(_) => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::LargeBinary => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::LargeUtf8 => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::List(_) => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::FixedSizeList(_, _) => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::LargeList(_) => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::Struct(_) => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::Union(_, _) => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::Dictionary(_, _) => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::Decimal128(_, _) => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::Decimal256(_, _) => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::Map(_, _) => Err(UnsupportedDataType::new(dt.clone())),
+        DataType::RunEndEncoded(_, _) => Err(UnsupportedDataType::new(dt.clone())),
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Unsupported data type: {data_type:?}")]
+pub struct UnsupportedDataType {
+    pub data_type: DataType,
+}
+
+impl UnsupportedDataType {
+    pub fn new(data_type: DataType) -> Self {
+        Self { data_type }
     }
 }

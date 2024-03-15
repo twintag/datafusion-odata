@@ -54,13 +54,24 @@ pub async fn odata_metadata_handler(
         let mut properties = Vec::new();
 
         for field in coll.schema().await.fields() {
-            let p = Property::primitive(
-                field.name(),
-                to_edm_type(field.data_type()),
-                field.is_nullable(),
-            );
+            let typ = match to_edm_type(field.data_type()) {
+                Ok(typ) => typ,
+                Err(err) => match odata_ctx.on_unsupported_feature() {
+                    OnUnsupported::Error => panic!("{}", err),
+                    OnUnsupported::Warn => {
+                        tracing::error!(
+                            table = collection_name,
+                            field = field.name(),
+                            error = %err,
+                            error_dbg = ?err,
+                            "Unsupported field type - skipping",
+                        );
+                        continue;
+                    }
+                },
+            };
 
-            properties.push(p);
+            properties.push(Property::primitive(field.name(), typ, field.is_nullable()));
         }
 
         entity_types.push(EntityType {
@@ -116,6 +127,7 @@ pub async fn odata_collection_handler(
         record_batches,
         ctx.as_ref(),
         ctx.last_updated_time().await,
+        ctx.on_unsupported_feature(),
         &mut writer,
     )
     .unwrap();
