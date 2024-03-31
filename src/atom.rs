@@ -261,15 +261,18 @@ where
                         DataType::Binary => todo!(),
                         DataType::FixedSizeBinary(_) => todo!(),
                         DataType::LargeBinary => todo!(),
+                        DataType::BinaryView => todo!(),
                         DataType::Utf8 => {
                             let arr = col.as_string::<i32>();
                             let val = arr.value(row);
                             BytesText::from_escaped(quick_xml::escape::escape(val))
                         }
                         DataType::LargeUtf8 => todo!(),
+                        DataType::Utf8View => todo!(),
                         DataType::List(_) => todo!(),
                         DataType::FixedSizeList(_, _) => todo!(),
                         DataType::LargeList(_) => todo!(),
+                        DataType::ListView(_) | DataType::LargeListView(_) => todo!(),
                         DataType::Struct(_) => todo!(),
                         DataType::Union(_, _) => todo!(),
                         DataType::Dictionary(_, _) => todo!(),
