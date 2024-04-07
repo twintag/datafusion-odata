@@ -314,7 +314,7 @@ checksum = "a507401cad91ec6a857ed5513a2073c82a9b9048762b885bb98655b306964681"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.57",
+ "syn 2.0.58",
 ]
 
 [[package]]
@@ -493,9 +493,9 @@ checksum = "514de17de45fdb8dc022b1a7975556c53c86f9f0aa5f534b98977b171857c2c9"
 
 [[package]]
 name = "cc"
-version = "1.0.90"
+version = "1.0.91"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
+checksum = "1fd97381a8cc6493395a5afc4c691c1084b3768db713b73aa215217aa245d153"
 dependencies = [
  "jobserver",
  "libc",
@@ -543,12 +543,12 @@ dependencies = [
 
 [[package]]
 name = "comfy-table"
-version = "7.1.0"
+version = "7.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c64043d6c7b7a4c58e39e7efccfdea7b93d885a795d0c054a69dbbf4dd52686"
+checksum = "b34115915337defe99b2aff5c2ce6771e5fbc4079f4b506301f5cf394c8452f7"
 dependencies = [
- "strum 0.25.0",
- "strum_macros 0.25.3",
+ "strum",
+ "strum_macros",
  "unicode-width",
 ]
 
@@ -670,7 +670,8 @@ dependencies = [
 [[package]]
 name = "datafusion"
 version = "37.0.0"
-source = "git+https://github.com/apache/arrow-datafusion.git?tag=37.0.0-rc1#799be5e76bd631608b2357dbbe600afc2cebc359"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "812a53e154009ee2bd6b2f8a9ab8f30cbf2c693cb860e60f0aa3315ba3486e39"
 dependencies = [
  "ahash",
  "arrow",
@@ -713,7 +714,8 @@ dependencies = [
 [[package]]
 name = "datafusion-common"
 version = "37.0.0"
-source = "git+https://github.com/apache/arrow-datafusion.git?tag=37.0.0-rc1#799be5e76bd631608b2357dbbe600afc2cebc359"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b99d4d7ccdad4dffa8ff4569f45792d0678a0c7ee08e3fdf1b0a52ebb9cf201e"
 dependencies = [
  "ahash",
  "arrow",
@@ -733,7 +735,8 @@ dependencies = [
 [[package]]
 name = "datafusion-common-runtime"
 version = "37.0.0"
-source = "git+https://github.com/apache/arrow-datafusion.git?tag=37.0.0-rc1#799be5e76bd631608b2357dbbe600afc2cebc359"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5cf713ae1f5423b5625aeb3ddfb0d5c29e880cf6a0d2059d0724219c873a76c"
 dependencies = [
  "tokio",
 ]
@@ -741,7 +744,8 @@ dependencies = [
 [[package]]
 name = "datafusion-execution"
 version = "37.0.0"
-source = "git+https://github.com/apache/arrow-datafusion.git?tag=37.0.0-rc1#799be5e76bd631608b2357dbbe600afc2cebc359"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f69d00325b77c3886b7080d96e3aa8e9a5ef16fe368a434c14b2f1b63b68803"
 dependencies = [
  "arrow",
  "chrono",
@@ -761,7 +765,8 @@ dependencies = [
 [[package]]
 name = "datafusion-expr"
 version = "37.0.0"
-source = "git+https://github.com/apache/arrow-datafusion.git?tag=37.0.0-rc1#799be5e76bd631608b2357dbbe600afc2cebc359"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fbe71343a95c2079fa443aa840dfdbd2034532cfc00449a57204c8a6fdcf928"
 dependencies = [
  "ahash",
  "arrow",
@@ -770,14 +775,15 @@ dependencies = [
  "datafusion-common",
  "paste",
  "sqlparser",
- "strum 0.26.2",
- "strum_macros 0.26.2",
+ "strum",
+ "strum_macros",
 ]
 
 [[package]]
 name = "datafusion-functions"
 version = "37.0.0"
-source = "git+https://github.com/apache/arrow-datafusion.git?tag=37.0.0-rc1#799be5e76bd631608b2357dbbe600afc2cebc359"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c046800d26d2267fab3bd5fc0b9bc0a7b1ae47e688b01c674ed39daa84cd3cc5"
 dependencies = [
  "arrow",
  "base64 0.22.0",
@@ -824,7 +830,8 @@ dependencies = [
 [[package]]
 name = "datafusion-optimizer"
 version = "37.0.0"
-source = "git+https://github.com/apache/arrow-datafusion.git?tag=37.0.0-rc1#799be5e76bd631608b2357dbbe600afc2cebc359"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3d48972fffe5a4ee2af2b8b72a3db5cdbc800d5dd5af54f8df0ab508bb5545c"
 dependencies = [
  "arrow",
  "async-trait",
@@ -841,7 +848,8 @@ dependencies = [
 [[package]]
 name = "datafusion-physical-expr"
 version = "37.0.0"
-source = "git+https://github.com/apache/arrow-datafusion.git?tag=37.0.0-rc1#799be5e76bd631608b2357dbbe600afc2cebc359"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e001baf1aaa95a418ee9fcb979f5fc18f16b81a8a5f6a260b05df9494344adb"
 dependencies = [
  "ahash",
  "arrow",
@@ -875,7 +883,8 @@ dependencies = [
 [[package]]
 name = "datafusion-physical-plan"
 version = "37.0.0"
-source = "git+https://github.com/apache/arrow-datafusion.git?tag=37.0.0-rc1#799be5e76bd631608b2357dbbe600afc2cebc359"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e5421ed2c5789bafc6d48231627d17c6836549a26c8162569354589202212ef"
 dependencies = [
  "ahash",
  "arrow",
@@ -905,7 +914,8 @@ dependencies = [
 [[package]]
 name = "datafusion-sql"
 version = "37.0.0"
-source = "git+https://github.com/apache/arrow-datafusion.git?tag=37.0.0-rc1#799be5e76bd631608b2357dbbe600afc2cebc359"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f70d881337f733b7d0548e468073c0ae8b256557c33b299fd6afea0ea5d5162"
 dependencies = [
  "arrow",
  "arrow-array",
@@ -914,7 +924,7 @@ dependencies = [
  "datafusion-expr",
  "log",
  "sqlparser",
- "strum 0.26.2",
+ "strum",
 ]
 
 [[package]]
@@ -1068,7 +1078,7 @@ checksum = "87750cf4b7a4c0625b1529e4c543c2182106e4dedc60a2a6455e00d212c489ac"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.57",
+ "syn 2.0.58",
 ]
 
 [[package]]
@@ -1123,9 +1133,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.12"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "190092ea657667030ac6a35e305e62fc4dd69fd98ac98631e5d3a2b1575a12b5"
+checksum = "a06fddc2749e0528d2813f95e050e87e52c8cbbae56223b9babf73b3e53b0cc6"
 dependencies = [
  "cfg-if",
  "libc",
@@ -1146,9 +1156,9 @@ checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
 name = "half"
-version = "2.4.0"
+version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5eceaaeec696539ddaf7b333340f1af35a5aa87ae3e4f3ead0532f72affab2e"
+checksum = "6dd08c532ae367adf81c312a4580bc67f1d0fe8bc9c460520283f4c0ff277888"
 dependencies = [
  "cfg-if",
  "crunchy",
@@ -1843,7 +1853,7 @@ checksum = "2f38a4412a78282e09a2cf38d195ea5420d15ba0602cb375210efbc877243965"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.57",
+ "syn 2.0.58",
 ]
 
 [[package]]
@@ -2017,9 +2027,9 @@ dependencies = [
 
 [[package]]
 name = "rustversion"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ffc183a10b4478d04cbbbfc96d0873219d962dd5accaff2ffbd4ceb7df837f4"
+checksum = "80af6f9131f277a45a3fba6ce8e2258037bb0477a67e610d3c1fe046ab31de47"
 
 [[package]]
 name = "ryu"
@@ -2071,7 +2081,7 @@ checksum = "7eb0b34b42edc17f6b7cac84a52a1c5f0e1bb2227e997ca9011ea3dd34e8610b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.57",
+ "syn 2.0.58",
 ]
 
 [[package]]
@@ -2215,7 +2225,7 @@ checksum = "01b2e185515564f15375f593fb966b5718bc624ba77fe49fa4616ad619690554"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.57",
+ "syn 2.0.58",
 ]
 
 [[package]]
@@ -2226,30 +2236,11 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "strum"
-version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
-
-[[package]]
-name = "strum"
 version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d8cec3501a5194c432b2b7976db6b7d10ec95c253208b45f83f7136aa985e29"
 dependencies = [
- "strum_macros 0.26.2",
-]
-
-[[package]]
-name = "strum_macros"
-version = "0.25.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23dc1fa9ac9c169a78ba62f0b841814b7abae11bdd047b9c58f893439e309ea0"
-dependencies = [
- "heck",
- "proc-macro2",
- "quote",
- "rustversion",
- "syn 2.0.57",
+ "strum_macros",
 ]
 
 [[package]]
@@ -2262,7 +2253,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustversion",
- "syn 2.0.57",
+ "syn 2.0.58",
 ]
 
 [[package]]
@@ -2284,9 +2275,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.57"
+version = "2.0.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11a6ae1e52eb25aab8f3fb9fca13be982a373b8f1157ca14b897a825ba4a2d35"
+checksum = "44cfb93f38070beee36b3fef7d4f5a16f27751d94b187b666a5cc5e9b0d30687"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2328,7 +2319,7 @@ checksum = "c61f3ba182994efc43764a46c018c347bc492c79f024e705f46567b418f6d4f7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.57",
+ "syn 2.0.58",
 ]
 
 [[package]]
@@ -2432,7 +2423,7 @@ checksum = "5b8a1e28f2deaa14e508979454cb3a223b10b938b45af148bc0986de36f1923b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.57",
+ "syn 2.0.58",
 ]
 
 [[package]]
@@ -2514,7 +2505,7 @@ checksum = "34704c8d6ebcbc939824180af020566b01a7c01f80641264eba0999f6c2b6be7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.57",
+ "syn 2.0.58",
 ]
 
 [[package]]
@@ -2716,7 +2707,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.57",
+ "syn 2.0.58",
  "wasm-bindgen-shared",
 ]
 
@@ -2738,7 +2729,7 @@ checksum = "e94f17b526d0a461a191c78ea52bbce64071ed5c04c9ffe424dcb38f74171bb7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.57",
+ "syn 2.0.58",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
@@ -2948,7 +2939,7 @@ checksum = "9ce1b18ccd8e73a9321186f97e46f9f04b778851177567b1975109d26a08d2a6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.57",
+ "syn 2.0.58",
 ]
 
 [[package]]
