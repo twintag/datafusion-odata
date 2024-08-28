@@ -3,7 +3,10 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use datafusion::{arrow::datatypes::SchemaRef, dataframe::DataFrame};
 
-use crate::collection::{CollectionAddr, QueryParams};
+use crate::{
+    collection::{CollectionAddr, QueryParams},
+    error::Result,
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -15,7 +18,7 @@ pub const DEFAULT_NAMESPACE: &str = "default";
 pub trait ServiceContext: Send + Sync {
     fn service_base_url(&self) -> String;
 
-    async fn list_collections(&self) -> Vec<Arc<dyn CollectionContext>>;
+    async fn list_collections(&self) -> Result<Vec<Arc<dyn CollectionContext>>>;
 
     fn on_unsupported_feature(&self) -> OnUnsupported;
 }

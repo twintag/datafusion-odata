@@ -1,22 +1,33 @@
 use std::sync::Arc;
 
-use crate::{collection::*, context::*, metadata::*, service::*};
+use axum::{
+    extract::Query,
+    response::{IntoResponse, Response, Result},
+    Extension,
+};
 
-///////////////////////////////////////////////////////////////////////////////
+use crate::{
+    collection::QueryParamsRaw,
+    context::{CollectionContext, OnUnsupported, ServiceContext, DEFAULT_NAMESPACE},
+    error::Error,
+    metadata::{
+        to_edm_type, DataServices, Edmx, EntityContainer, EntityKey, EntitySet, EntityType,
+        Property, PropertyRef,
+    },
+    service::{Collection, Service, Workspace},
+};
 
 pub const MEDIA_TYPE_ATOM: &str = "application/atom+xml;type=feed;charset=utf-8";
 pub const MEDIA_TYPE_XML: &str = "application/xml;charset=utf-8";
 
 const DEFAULT_COLLECTION_RESPONSE_SIZE: usize = 512_000;
 
-///////////////////////////////////////////////////////////////////////////////
-
 pub async fn odata_service_handler(
-    axum::Extension(odata_ctx): axum::Extension<Arc<dyn ServiceContext>>,
-) -> axum::response::Response<String> {
+    Extension(odata_ctx): Extension<Arc<dyn ServiceContext>>,
+) -> Result<Response<String>> {
     let mut collections = Vec::new();
 
-    for coll in odata_ctx.list_collections().await {
+    for coll in odata_ctx.list_collections().await? {
         collections.push(Collection {
             href: coll.collection_name(),
             title: coll.collection_name(),
@@ -31,17 +42,15 @@ pub async fn odata_service_handler(
         },
     );
 
-    axum::response::Response::builder()
+    Ok(Response::builder()
         .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_XML)
-        .body(write_object_to_xml("service", &service))
-        .unwrap()
+        .body(write_object_to_xml("service", &service)?)
+        .map_err(Error::from)?)
 }
 
-///////////////////////////////////////////////////////////////////////////////
-
 pub async fn odata_metadata_handler(
-    axum::Extension(odata_ctx): axum::Extension<Arc<dyn ServiceContext>>,
-) -> axum::response::Response<String> {
+    Extension(odata_ctx): Extension<Arc<dyn ServiceContext>>,
+) -> Result<Response<String>> {
     let mut entity_types = Vec::new();
     let mut entity_container = EntityContainer {
         name: DEFAULT_NAMESPACE.to_string(),
@@ -49,7 +58,7 @@ pub async fn odata_metadata_handler(
         entity_set: Vec::new(),
     };
 
-    for coll in odata_ctx.list_collections().await {
+    for coll in odata_ctx.list_collections().await? {
         let collection_name = coll.collection_name();
         let mut properties = Vec::new();
 
@@ -57,7 +66,13 @@ pub async fn odata_metadata_handler(
             let typ = match to_edm_type(field.data_type()) {
                 Ok(typ) => typ,
                 Err(err) => match odata_ctx.on_unsupported_feature() {
-                    OnUnsupported::Error => panic!("{}", err),
+                    OnUnsupported::Error => {
+                        return Err(Error::UnsupportedFeature(format!(
+                            "Unsupported field type {:?}",
+                            field.data_type()
+                        ))
+                        .into());
+                    }
                     OnUnsupported::Warn => {
                         tracing::error!(
                             table = collection_name,
@@ -77,7 +92,10 @@ pub async fn odata_metadata_handler(
         entity_types.push(EntityType {
             name: collection_name.clone(),
             key: EntityKey::new(vec![PropertyRef {
-                name: coll.collection_name(),
+                // TODO
+                // https://www.odata.org/documentation/odata-version-3-0/common-schema-definition-language-csdl/#csdl6.3
+                // name: coll.collection_name(),
+                name: "id".to_string(),
             }]),
             properties,
         });
@@ -94,26 +112,24 @@ pub async fn odata_metadata_handler(
         vec![entity_container],
     )]));
 
-    axum::response::Response::builder()
+    Ok(Response::builder()
         .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_XML)
-        .body(write_object_to_xml("edmx:Edmx", &metadata))
-        .unwrap()
+        .body(write_object_to_xml("edmx:Edmx", &metadata)?)
+        .map_err(Error::from)?)
 }
 
-///////////////////////////////////////////////////////////////////////////////
-
 pub async fn odata_collection_handler(
-    axum::Extension(ctx): axum::Extension<Arc<dyn CollectionContext>>,
-    axum::extract::Query(query): axum::extract::Query<QueryParamsRaw>,
+    Extension(ctx): Extension<Arc<dyn CollectionContext>>,
+    Query(query): Query<QueryParamsRaw>,
     _headers: axum::http::HeaderMap,
-) -> axum::response::Response<String> {
+) -> Result<Response<String>> {
     let query = query.decode();
     tracing::debug!(?query, "Decoded query");
 
-    let df = ctx.query(query).await.unwrap();
+    let df = ctx.query(query).await.map_err(Error::from)?;
 
     let schema: datafusion::arrow::datatypes::Schema = df.schema().clone().into();
-    let record_batches = df.collect().await.unwrap();
+    let record_batches = df.collect().await.map_err(Error::from)?;
 
     let num_rows: usize = record_batches.iter().map(|b| b.num_rows()).sum();
     let raw_bytes: usize = record_batches
@@ -132,9 +148,10 @@ pub async fn odata_collection_handler(
             ctx.on_unsupported_feature(),
             &mut writer,
         )
-        .unwrap();
+        .map_err(Error::from)?;
     } else {
         let num_rows: usize = record_batches.iter().map(|b| b.num_rows()).sum();
+        // TODO
         assert!(num_rows <= 1, "Request by key returned {} rows", num_rows);
         assert!(
             record_batches.len() <= 1,
@@ -143,10 +160,10 @@ pub async fn odata_collection_handler(
         );
 
         if record_batches.len() != 1 || record_batches[0].num_rows() != 1 {
-            return axum::response::Response::builder()
+            return Ok(Response::builder()
                 .status(http::StatusCode::NOT_FOUND)
                 .body("".into())
-                .unwrap();
+                .map_err(Error::from)?);
         }
 
         crate::atom::write_atom_entry_from_record(
@@ -157,10 +174,10 @@ pub async fn odata_collection_handler(
             ctx.on_unsupported_feature(),
             &mut writer,
         )
-        .unwrap();
+        .map_err(Error::from)?;
     }
 
-    let body = String::from_utf8(writer.into_inner()).unwrap();
+    let body = String::from_utf8(writer.into_inner()).map_err(Error::from)?;
 
     tracing::debug!(
         media_type = MEDIA_TYPE_ATOM,
@@ -170,15 +187,13 @@ pub async fn odata_collection_handler(
         "Prepared a response"
     );
 
-    axum::response::Response::builder()
+    Ok(Response::builder()
         .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_ATOM)
         .body(body)
-        .unwrap()
+        .map_err(Error::from)?)
 }
 
-///////////////////////////////////////////////////////////////////////////////
-
-fn write_object_to_xml<T>(tag: &str, object: &T) -> String
+fn write_object_to_xml<T>(tag: &str, object: &T) -> Result<String>
 where
     T: serde::ser::Serialize,
 {
@@ -189,9 +204,18 @@ where
         .write_event(quick_xml::events::Event::Decl(
             quick_xml::events::BytesDecl::new("1.0", Some("utf-8"), None),
         ))
-        .unwrap();
+        .map_err(Error::from)?;
 
-    writer.write_serializable(tag, object).unwrap();
+    writer
+        .write_serializable(tag, object)
+        .map_err(Error::from)?;
 
-    String::from_utf8(writer.into_inner()).unwrap()
+    Ok(String::from_utf8(writer.into_inner()).map_err(Error::from)?)
+}
+
+impl IntoResponse for Error {
+    fn into_response(self) -> Response {
+        tracing::error!("Internal Error: {self}");
+        (http::StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response()
+    }
 }

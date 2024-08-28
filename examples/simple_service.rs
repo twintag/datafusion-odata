@@ -4,9 +4,14 @@ use chrono::{DateTime, Utc};
 use datafusion::arrow::datatypes::SchemaRef;
 use datafusion::{prelude::*, sql::TableReference};
 
-use datafusion_odata::collection::*;
-use datafusion_odata::context::*;
-use datafusion_odata::handlers::*;
+use axum::response::{Response, Result as AxumResult};
+
+use datafusion_odata::{
+    collection::{CollectionAddr, QueryParams, QueryParamsRaw},
+    context::{CollectionContext, OnUnsupported, ServiceContext},
+    error::{Error, Result},
+    handlers::{MEDIA_TYPE_ATOM, MEDIA_TYPE_XML},
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -20,7 +25,7 @@ const DEFAULT_MAX_ROWS: usize = 100;
 pub async fn odata_service_handler(
     axum::extract::State(query_ctx): axum::extract::State<SessionContext>,
     host: axum::extract::Host,
-) -> axum::response::Response<String> {
+) -> AxumResult<Response<String>> {
     let ctx = Arc::new(ODataContext::new_service(query_ctx, host));
     datafusion_odata::handlers::odata_service_handler(axum::Extension(ctx)).await
 }
@@ -30,7 +35,7 @@ pub async fn odata_service_handler(
 pub async fn odata_metadata_handler(
     axum::extract::State(query_ctx): axum::extract::State<SessionContext>,
     host: axum::extract::Host,
-) -> axum::response::Response<String> {
+) -> AxumResult<Response<String>> {
     let ctx = ODataContext::new_service(query_ctx, host);
     datafusion_odata::handlers::odata_metadata_handler(axum::Extension(Arc::new(ctx))).await
 }
@@ -43,12 +48,12 @@ pub async fn odata_collection_handler(
     axum::extract::Path(collection_path_element): axum::extract::Path<String>,
     query: axum::extract::Query<QueryParamsRaw>,
     headers: axum::http::HeaderMap,
-) -> axum::response::Response<String> {
+) -> AxumResult<Response<String>> {
     let Some(addr) = CollectionAddr::decode(&collection_path_element) else {
-        return axum::response::Response::builder()
+        return Ok(axum::response::Response::builder()
             .status(http::StatusCode::NOT_FOUND)
             .body("".into())
-            .unwrap();
+            .map_err(Error::from)?);
     };
 
     let ctx = Arc::new(ODataContext::new_collection(query_ctx, host, addr));
@@ -94,7 +99,7 @@ impl ServiceContext for ODataContext {
         self.service_base_url.clone()
     }
 
-    async fn list_collections(&self) -> Vec<Arc<dyn CollectionContext>> {
+    async fn list_collections(&self) -> Result<Vec<Arc<dyn CollectionContext>>> {
         let cnames = self.query_ctx.catalog_names();
         assert_eq!(
             cnames.len(),
@@ -127,7 +132,7 @@ impl ServiceContext for ODataContext {
             }));
         }
 
-        collections
+        Ok(collections)
     }
 
     fn on_unsupported_feature(&self) -> OnUnsupported {
@@ -281,8 +286,8 @@ async fn main() {
         )
         .with_state(ctx);
 
-    tracing::info!("Runninng on http://localhost:3000/");
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    tracing::info!("Runninng on http://localhost:50051/");
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:50051").await.unwrap();
     let server = axum::serve(listener, app);
 
     if let Err(err) = server.await {
