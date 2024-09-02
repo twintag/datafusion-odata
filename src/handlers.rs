@@ -89,13 +89,16 @@ pub async fn odata_metadata_handler(
             properties.push(Property::primitive(field.name(), typ, field.is_nullable()));
         }
 
+        // https://www.odata.org/documentation/odata-version-3-0/common-schema-definition-language-csdl/#csdl6.3
+        let prop_ref = match properties.first() {
+            Some(name) => name,
+            None => todo!(),
+        };
+
         entity_types.push(EntityType {
             name: collection_name.clone(),
             key: EntityKey::new(vec![PropertyRef {
-                // TODO
-                // https://www.odata.org/documentation/odata-version-3-0/common-schema-definition-language-csdl/#csdl6.3
-                // name: coll.collection_name(),
-                name: "id".to_string(),
+                name: prop_ref.name.clone(),
             }]),
             properties,
         });
