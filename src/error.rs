@@ -26,4 +26,6 @@ pub enum Error {
     UnsupportedDataType(datafusion::arrow::datatypes::DataType),
     #[error("Unsupported feature: {0}")]
     UnsupportedFeature(String),
+    #[error("Collection not found: {0}")]
+    CollectionNotFound(String),
 }

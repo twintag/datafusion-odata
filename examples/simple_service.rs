@@ -172,20 +172,22 @@ impl CollectionContext for ODataContext {
             .schema()
     }
 
-    async fn query(&self, query: QueryParams) -> datafusion::error::Result<DataFrame> {
+    async fn query(&self, query: QueryParams) -> Result<DataFrame> {
         let df = self
             .query_ctx
             .table(TableReference::bare(self.collection_name()))
             .await?;
 
-        query.apply(
-            df,
-            self.addr(),
-            "offset",
-            &self.key_column_alias(),
-            DEFAULT_MAX_ROWS,
-            usize::MAX,
-        )
+        query
+            .apply(
+                df,
+                self.addr(),
+                "offset",
+                &self.key_column_alias(),
+                DEFAULT_MAX_ROWS,
+                usize::MAX,
+            )
+            .map_err(Error::from)
     }
 
     fn on_unsupported_feature(&self) -> OnUnsupported {
@@ -287,7 +289,9 @@ async fn main() {
         .with_state(ctx);
 
     tracing::info!("Runninng on http://localhost:50051/");
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:50051").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:50051")
+        .await
+        .unwrap();
     let server = axum::serve(listener, app);
 
     if let Err(err) = server.await {

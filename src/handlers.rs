@@ -90,15 +90,15 @@ pub async fn odata_metadata_handler(
         }
 
         // https://www.odata.org/documentation/odata-version-3-0/common-schema-definition-language-csdl/#csdl6.3
-        let prop_ref = match properties.first() {
-            Some(name) => name,
-            None => todo!(),
+        let property_ref_name = match properties.first() {
+            Some(prop) => prop.name.clone(),
+            None => collection_name.to_string(),
         };
 
         entity_types.push(EntityType {
             name: collection_name.clone(),
             key: EntityKey::new(vec![PropertyRef {
-                name: prop_ref.name.clone(),
+                name: property_ref_name,
             }]),
             properties,
         });
@@ -220,13 +220,23 @@ impl IntoResponse for Error {
     fn into_response(self) -> Response {
         tracing::error!("Error: {self}");
         match self {
-            Error::Datafusion(datafusion::error::DataFusionError::Plan(e)) => {
+            Error::Datafusion(datafusion::error::DataFusionError::Plan(ref e)) => {
                 if e.contains("No table named") {
                     return (http::StatusCode::NOT_FOUND, "Not found").into_response();
                 }
             }
+            Error::CollectionNotFound(_) => {
+                return (http::StatusCode::NOT_FOUND, "Not found").into_response();
+            }
             _ => {}
         }
+
+        if let Error::Datafusion(datafusion::error::DataFusionError::Plan(e)) = self {
+            if e.contains("No table named") {
+                return (http::StatusCode::NOT_FOUND, "Not found").into_response();
+            }
+        }
+
         (http::StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response()
     }
 }

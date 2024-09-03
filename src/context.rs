@@ -46,7 +46,7 @@ pub trait CollectionContext: Send + Sync {
 
     async fn schema(&self) -> SchemaRef;
 
-    async fn query(&self, query: QueryParams) -> datafusion::error::Result<DataFrame>;
+    async fn query(&self, query: QueryParams) -> Result<DataFrame>;
 
     fn on_unsupported_feature(&self) -> OnUnsupported;
 }
