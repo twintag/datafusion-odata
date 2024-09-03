@@ -5,6 +5,7 @@ use datafusion::{arrow::datatypes::SchemaRef, prelude::*, sql::TableReference};
 use datafusion_odata::{
     collection::{CollectionAddr, QueryParams, QueryParamsRaw},
     context::*,
+    error::{Error, Result},
 };
 use indoc::indoc;
 
@@ -13,7 +14,9 @@ use indoc::indoc;
 #[tokio::test]
 async fn test_service() {
     let ctx = fixture("tickers.spy").await;
-    let resp = datafusion_odata::handlers::odata_service_handler(axum::Extension(ctx)).await;
+    let resp = datafusion_odata::handlers::odata_service_handler(axum::Extension(ctx))
+        .await
+        .unwrap();
     assert_eq!(
         *resp.body(),
         indoc!(
@@ -43,7 +46,9 @@ async fn test_service() {
 #[tokio::test]
 async fn test_metadata() {
     let ctx = fixture("tickers.spy").await;
-    let resp = datafusion_odata::handlers::odata_metadata_handler(axum::Extension(ctx)).await;
+    let resp = datafusion_odata::handlers::odata_metadata_handler(axum::Extension(ctx))
+        .await
+        .unwrap();
     assert_eq!(
         *resp.body(),
         indoc!(
@@ -53,7 +58,7 @@ async fn test_metadata() {
             <edmx:DataServices xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata" m:DataServiceVersion="3.0" m:MaxDataServiceVersion="3.0">
             <Schema Namespace="default" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
             <EntityType Name="covid19.canada">
-            <Key><PropertyRef Name="covid19.canada"/></Key>
+            <Key><PropertyRef Name="offset"/></Key>
             <Property Name="offset" Type="Edm.Int64" Nullable="false"/>
             <Property Name="op" Type="Edm.Int32" Nullable="false"/>
             <Property Name="system_time" Type="Edm.DateTime" Nullable="false"/>
@@ -62,7 +67,7 @@ async fn test_metadata() {
             <Property Name="total_daily" Type="Edm.Int64" Nullable="false"/>
             </EntityType>
             <EntityType Name="tickers.spy">
-            <Key><PropertyRef Name="tickers.spy"/></Key>
+            <Key><PropertyRef Name="offset"/></Key>
             <Property Name="offset" Type="Edm.Int64" Nullable="true"/>
             <Property Name="op" Type="Edm.Int32" Nullable="false"/>
             <Property Name="system_time" Type="Edm.DateTime" Nullable="false"/>
@@ -103,7 +108,8 @@ async fn test_collection() {
         }),
         axum::http::HeaderMap::new(),
     )
-    .await;
+    .await
+    .unwrap();
     assert_eq!(
         *resp.body(),
         indoc!(
@@ -168,7 +174,8 @@ async fn test_collection_entity_by_id() {
         }),
         axum::http::HeaderMap::new(),
     )
-    .await;
+    .await
+    .unwrap();
     assert_eq!(
         *resp.body(),
         indoc!(
@@ -213,7 +220,8 @@ async fn test_collection_entity_by_id_not_found() {
         }),
         axum::http::HeaderMap::new(),
     )
-    .await;
+    .await
+    .unwrap();
     assert_eq!(resp.status(), http::StatusCode::NOT_FOUND);
 }
 
@@ -278,7 +286,7 @@ impl ServiceContext for ODataContext {
         self.service_base_url.clone()
     }
 
-    async fn list_collections(&self) -> Vec<Arc<dyn CollectionContext>> {
+    async fn list_collections(&self) -> Result<Vec<Arc<dyn CollectionContext>>> {
         let catalog_name = self.query_ctx.catalog_names().into_iter().next().unwrap();
         let catalog = self.query_ctx.catalog(&catalog_name).unwrap();
 
@@ -300,7 +308,7 @@ impl ServiceContext for ODataContext {
             }));
         }
 
-        collections
+        Ok(collections)
     }
 
     fn on_unsupported_feature(&self) -> OnUnsupported {
@@ -342,20 +350,22 @@ impl CollectionContext for ODataContext {
             .schema()
     }
 
-    async fn query(&self, query: QueryParams) -> datafusion::error::Result<DataFrame> {
+    async fn query(&self, query: QueryParams) -> Result<DataFrame> {
         let df = self
             .query_ctx
             .table(TableReference::bare(self.collection_name()))
             .await?;
 
-        query.apply(
-            df,
-            self.addr(),
-            "offset",
-            &self.key_column_alias(),
-            100,
-            usize::MAX,
-        )
+        query
+            .apply(
+                df,
+                self.addr(),
+                "offset",
+                &self.key_column_alias(),
+                100,
+                usize::MAX,
+            )
+            .map_err(Error::from)
     }
 
     fn on_unsupported_feature(&self) -> OnUnsupported {
