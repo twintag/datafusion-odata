@@ -218,7 +218,15 @@ where
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
-        tracing::error!("Internal Error: {self}");
+        tracing::error!("Error: {self}");
+        match self {
+            Error::Datafusion(datafusion::error::DataFusionError::Plan(e)) => {
+                if e.contains("No table named") {
+                    return (http::StatusCode::NOT_FOUND, "Not found").into_response();
+                }
+            }
+            _ => {}
+        }
         (http::StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response()
     }
 }
