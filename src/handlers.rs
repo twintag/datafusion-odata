@@ -230,13 +230,6 @@ impl IntoResponse for Error {
             }
             _ => {}
         }
-
-        if let Error::Datafusion(datafusion::error::DataFusionError::Plan(e)) = self {
-            if e.contains("No table named") {
-                return (http::StatusCode::NOT_FOUND, "Not found").into_response();
-            }
-        }
-
         (http::StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response()
     }
 }
