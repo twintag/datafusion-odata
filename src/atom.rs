@@ -474,7 +474,11 @@ fn encode_primitive_dyn(col: &Arc<dyn Array>, row: usize) -> BytesText {
                 let val = arr.value(row);
                 BytesText::from_escaped(quick_xml::escape::escape(val))
             }
-            DataType::LargeUtf8 => todo!(),
+            DataType::LargeUtf8 => {
+                let arr = col.as_string::<i64>();
+                let val = arr.value(row);
+                BytesText::from_escaped(quick_xml::escape::escape(val))
+            }
             DataType::Utf8View => todo!(),
             DataType::List(_) => todo!(),
             DataType::FixedSizeList(_, _) => todo!(),
