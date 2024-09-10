@@ -29,8 +29,8 @@ pub async fn odata_service_handler(
 
     for coll in odata_ctx.list_collections().await? {
         collections.push(Collection {
-            href: coll.collection_name(),
-            title: coll.collection_name(),
+            href: coll.collection_name()?,
+            title: coll.collection_name()?,
         })
     }
 
@@ -59,10 +59,10 @@ pub async fn odata_metadata_handler(
     };
 
     for coll in odata_ctx.list_collections().await? {
-        let collection_name = coll.collection_name();
+        let collection_name = coll.collection_name()?;
         let mut properties = Vec::new();
 
-        for field in coll.schema().await.fields() {
+        for field in coll.schema().await?.fields() {
             let typ = match to_edm_type(field.data_type()) {
                 Ok(typ) => typ,
                 Err(err) => match odata_ctx.on_unsupported_feature() {
@@ -90,9 +90,12 @@ pub async fn odata_metadata_handler(
         }
 
         // https://www.odata.org/documentation/odata-version-3-0/common-schema-definition-language-csdl/#csdl6.3
-        let property_ref_name = match properties.first() {
-            Some(prop) => prop.name.clone(),
-            None => collection_name.to_string(),
+        let property_ref_name = match odata_ctx.key_column() {
+            Some(kc) => kc,
+            None => match properties.first() {
+                Some(prop) => prop.name.clone(),
+                None => collection_name.to_string(),
+            },
         };
 
         entity_types.push(EntityType {
@@ -142,7 +145,7 @@ pub async fn odata_collection_handler(
 
     let mut writer = quick_xml::Writer::new(Vec::<u8>::new());
 
-    if ctx.addr().key.is_none() {
+    if ctx.addr()?.key.is_none() {
         crate::atom::write_atom_feed_from_records(
             &schema,
             record_batches,

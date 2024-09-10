@@ -21,21 +21,25 @@ pub trait ServiceContext: Send + Sync {
     async fn list_collections(&self) -> Result<Vec<Arc<dyn CollectionContext>>>;
 
     fn on_unsupported_feature(&self) -> OnUnsupported;
+
+    fn key_column(&self) -> Option<String> {
+        None
+    }
 }
 
 #[async_trait::async_trait]
 pub trait CollectionContext: Send + Sync {
-    fn addr(&self) -> &CollectionAddr;
+    fn addr(&self) -> Result<&CollectionAddr>;
 
-    fn service_base_url(&self) -> String;
+    fn service_base_url(&self) -> Result<String>;
 
-    fn collection_base_url(&self) -> String;
+    fn collection_base_url(&self) -> Result<String>;
 
-    fn collection_namespace(&self) -> String {
-        DEFAULT_NAMESPACE.to_string()
+    fn collection_namespace(&self) -> Result<String> {
+        Ok(DEFAULT_NAMESPACE.to_string())
     }
 
-    fn collection_name(&self) -> String;
+    fn collection_name(&self) -> Result<String>;
 
     // Synthetic column name that will be used to propagate entity IDs
     fn key_column_alias(&self) -> String {
@@ -44,7 +48,7 @@ pub trait CollectionContext: Send + Sync {
 
     async fn last_updated_time(&self) -> DateTime<Utc>;
 
-    async fn schema(&self) -> SchemaRef;
+    async fn schema(&self) -> Result<SchemaRef>;
 
     async fn query(&self, query: QueryParams) -> Result<DataFrame>;
 

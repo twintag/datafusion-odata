@@ -7,7 +7,10 @@ use datafusion::arrow::{
 };
 use quick_xml::events::*;
 
-use crate::context::{CollectionContext, OnUnsupported};
+use crate::{
+    context::{CollectionContext, OnUnsupported},
+    error::Result,
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -69,15 +72,15 @@ pub fn write_atom_feed_from_records<W>(
     updated_time: DateTime<Utc>,
     on_unsupported: OnUnsupported,
     writer: &mut quick_xml::Writer<W>,
-) -> quick_xml::Result<()>
+) -> Result<()>
 where
     W: std::io::Write,
 {
-    let mut service_base_url = ctx.service_base_url();
-    let mut collection_base_url = ctx.collection_base_url();
-    let collection_name = ctx.collection_name();
-    let type_name = ctx.collection_name();
-    let type_namespace = ctx.collection_namespace();
+    let mut service_base_url = ctx.service_base_url()?;
+    let mut collection_base_url = ctx.collection_base_url()?;
+    let collection_name = ctx.collection_name()?;
+    let type_name = ctx.collection_name()?;
+    let type_namespace = ctx.collection_namespace()?;
 
     assert!(service_base_url.starts_with("http"));
     assert!(collection_base_url.starts_with("http"));
@@ -280,17 +283,17 @@ pub fn write_atom_entry_from_record<W>(
     updated_time: DateTime<Utc>,
     on_unsupported: OnUnsupported,
     writer: &mut quick_xml::Writer<W>,
-) -> quick_xml::Result<()>
+) -> Result<()>
 where
     W: std::io::Write,
 {
     assert_eq!(batch.num_rows(), 1);
 
-    let mut service_base_url = ctx.service_base_url();
-    let mut collection_base_url = ctx.collection_base_url();
-    let collection_name = ctx.collection_name();
-    let type_name = ctx.collection_name();
-    let type_namespace = ctx.collection_namespace();
+    let mut service_base_url = ctx.service_base_url()?;
+    let mut collection_base_url = ctx.collection_base_url()?;
+    let collection_name = ctx.collection_name()?;
+    let type_name = ctx.collection_name()?;
+    let type_namespace = ctx.collection_namespace()?;
 
     assert!(service_base_url.starts_with("http"));
     assert!(collection_base_url.starts_with("http"));

@@ -318,22 +318,22 @@ impl ServiceContext for ODataContext {
 
 #[async_trait::async_trait]
 impl CollectionContext for ODataContext {
-    fn addr(&self) -> &CollectionAddr {
-        self.addr.as_ref().unwrap()
+    fn addr(&self) -> Result<&CollectionAddr> {
+        Ok(self.addr.as_ref().unwrap())
     }
 
-    fn service_base_url(&self) -> String {
-        self.service_base_url.clone()
+    fn service_base_url(&self) -> Result<String> {
+        Ok(self.service_base_url.clone())
     }
 
-    fn collection_base_url(&self) -> String {
+    fn collection_base_url(&self) -> Result<String> {
         let service_base_url = &self.service_base_url;
-        let collection_name = self.collection_name();
-        format!("{service_base_url}{collection_name}")
+        let collection_name = self.collection_name()?;
+        Ok(format!("{service_base_url}{collection_name}"))
     }
 
-    fn collection_name(&self) -> String {
-        self.addr().name.clone()
+    fn collection_name(&self) -> Result<String> {
+        Ok(self.addr()?.name.clone())
     }
 
     async fn last_updated_time(&self) -> DateTime<Utc> {
@@ -342,24 +342,24 @@ impl CollectionContext for ODataContext {
             .into()
     }
 
-    async fn schema(&self) -> SchemaRef {
-        self.query_ctx
-            .table_provider(TableReference::bare(self.collection_name()))
-            .await
-            .unwrap()
-            .schema()
+    async fn schema(&self) -> Result<SchemaRef> {
+        Ok(self
+            .query_ctx
+            .table_provider(TableReference::bare(self.collection_name()?))
+            .await?
+            .schema())
     }
 
     async fn query(&self, query: QueryParams) -> Result<DataFrame> {
         let df = self
             .query_ctx
-            .table(TableReference::bare(self.collection_name()))
+            .table(TableReference::bare(self.collection_name()?))
             .await?;
 
         query
             .apply(
                 df,
-                self.addr(),
+                self.addr()?,
                 "offset",
                 &self.key_column_alias(),
                 100,
