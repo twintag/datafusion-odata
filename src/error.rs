@@ -30,4 +30,6 @@ pub enum Error {
     CollectionNotFound(String),
     #[error("Collection address not assigned")]
     CollectionAddressNotAssigned,
+    #[error("Key column not assigned")]
+    KeyColumnNotAssigned,
 }

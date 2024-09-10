@@ -5,7 +5,7 @@ use datafusion::{arrow::datatypes::SchemaRef, dataframe::DataFrame};
 
 use crate::{
     collection::{CollectionAddr, QueryParams},
-    error::Result,
+    error::{Error, Result},
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -42,8 +42,8 @@ pub trait CollectionContext: Send + Sync {
         "__id__".to_string()
     }
 
-    fn key_column(&self) -> Option<String> {
-        None
+    fn key_column(&self) -> Result<String> {
+        Err(Error::KeyColumnNotAssigned)
     }
 
     async fn last_updated_time(&self) -> DateTime<Utc>;

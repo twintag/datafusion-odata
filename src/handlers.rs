@@ -91,11 +91,20 @@ pub async fn odata_metadata_handler(
 
         // https://www.odata.org/documentation/odata-version-3-0/common-schema-definition-language-csdl/#csdl6.3
         let property_ref_name = match coll.key_column() {
-            Some(kc) => kc,
-            None => match properties.first() {
+            Ok(kc) => kc,
+            Err(Error::KeyColumnNotAssigned) => match properties.first() {
                 Some(prop) => prop.name.clone(),
                 None => collection_name.to_string(),
             },
+            Err(err) => {
+                tracing::error!(
+                    table = collection_name,
+                    error = %err,
+                    error_dbg = ?err,
+                    "Failed to get key column",
+                );
+                return Err(err.into());
+            }
         };
 
         entity_types.push(EntityType {
