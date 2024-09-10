@@ -90,7 +90,7 @@ pub async fn odata_metadata_handler(
         }
 
         // https://www.odata.org/documentation/odata-version-3-0/common-schema-definition-language-csdl/#csdl6.3
-        let property_ref_name = match odata_ctx.key_column() {
+        let property_ref_name = match coll.key_column() {
             Some(kc) => kc,
             None => match properties.first() {
                 Some(prop) => prop.name.clone(),

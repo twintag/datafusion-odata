@@ -21,10 +21,6 @@ pub trait ServiceContext: Send + Sync {
     async fn list_collections(&self) -> Result<Vec<Arc<dyn CollectionContext>>>;
 
     fn on_unsupported_feature(&self) -> OnUnsupported;
-
-    fn key_column(&self) -> Option<String> {
-        None
-    }
 }
 
 #[async_trait::async_trait]
@@ -44,6 +40,10 @@ pub trait CollectionContext: Send + Sync {
     // Synthetic column name that will be used to propagate entity IDs
     fn key_column_alias(&self) -> String {
         "__id__".to_string()
+    }
+
+    fn key_column(&self) -> Option<String> {
+        None
     }
 
     async fn last_updated_time(&self) -> DateTime<Utc>;
