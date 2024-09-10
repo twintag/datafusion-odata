@@ -28,6 +28,6 @@ pub enum Error {
     UnsupportedFeature(String),
     #[error("Collection not found: {0}")]
     CollectionNotFound(String),
-    #[error("Collection address not assigned: {0}")]
-    CollectionAddressNotAssigned(String),
+    #[error("Collection address not assigned")]
+    CollectionAddressNotAssigned,
 }
