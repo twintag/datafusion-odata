@@ -463,7 +463,12 @@ fn encode_primitive_dyn(col: &Arc<dyn Array>, row: usize) -> BytesText {
                 encode_date_time(&ts)
             }
             DataType::Date32 => todo!(),
-            DataType::Date64 => todo!(),
+            DataType::Date64 => {
+                let arr = col.as_primitive::<Date64Type>();
+                let ticks = arr.value(row);
+                let ts = chrono::DateTime::from_timestamp_millis(ticks).unwrap();
+                encode_date_time(&ts)
+            }
             DataType::Time32(_) => todo!(),
             DataType::Time64(_) => todo!(),
             DataType::Duration(_) => todo!(),
@@ -515,4 +520,34 @@ where
 fn encode_date_time(dt: &DateTime<Utc>) -> BytesText<'static> {
     let s = dt.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
     BytesText::from_escaped(s)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use datafusion::arrow::{
+        array::{Array, Date64Array, Int64Array},
+        datatypes::{ArrowPrimitiveType, Date64Type},
+    };
+
+    #[test]
+    fn test_encode_primitive_dyn() {
+        let values: Int64Array = vec![1, 2, 3].into();
+        let values = Arc::new(values) as Arc<dyn Array>;
+
+        let result = encode_primitive_dyn(&values, 0);
+        assert_eq!(result, BytesText::new("1"));
+
+        let values = vec![chrono::DateTime::from_timestamp_millis(1726012800000).unwrap()];
+        let values: Date64Array = values
+            .iter()
+            .map(|d| Date64Type::from_naive_date(d.date_naive()))
+            .collect::<Vec<<Date64Type as ArrowPrimitiveType>::Native>>()
+            .into();
+        let values = Arc::new(values) as Arc<dyn Array>;
+
+        let result = encode_primitive_dyn(&values, 0);
+        assert_eq!(result.borrow(), BytesText::new("2024-09-11T00:00:00.000Z"));
+    }
 }
