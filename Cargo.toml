@@ -1,6 +1,6 @@
 [package]
 name = "datafusion-odata"
-version = "41.0.0"
+version = "41.1.0"
 edition = "2021"
 repository = "https://github.com/kamu-data/datafusion-odata"
 description = "OData protocol adapter for Apache Datafusion"
