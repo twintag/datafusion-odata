@@ -9,7 +9,7 @@
 
 use datafusion::arrow::datatypes::DataType;
 
-use crate::error::{Error, Result};
+use crate::error::UnsupportedDataType;
 
 #[derive(Debug, serde::Serialize)]
 pub struct Edmx {
@@ -172,9 +172,8 @@ pub struct EntitySet {
 ///////////////////////////////////////////////////////////////////////////////
 
 // See: https://www.odata.org/documentation/odata-version-3-0/common-schema-definition-language-csdl/
-pub fn to_edm_type(dt: &DataType) -> Result<&'static str> {
+pub fn to_edm_type(dt: &DataType) -> std::result::Result<&'static str, UnsupportedDataType> {
     match dt {
-        DataType::Null => Err(Error::UnsupportedDataType(dt.clone())),
         DataType::Boolean => Ok("Edm.Boolean"),
         // TODO: Use Edm.Byte / Edm.SByte?
         DataType::Int8 => Ok("Edm.Int16"),
@@ -188,32 +187,33 @@ pub fn to_edm_type(dt: &DataType) -> Result<&'static str> {
         DataType::UInt64 => Ok("Edm.Int64"),
         DataType::Utf8 => Ok("Edm.String"),
         DataType::LargeUtf8 => Ok("Edm.String"),
-        DataType::Utf8View => Err(Error::UnsupportedDataType(dt.clone())),
         DataType::Float16 => Ok("Edm.Single"),
         DataType::Float32 => Ok("Edm.Single"),
         DataType::Float64 => Ok("Edm.Double"),
         DataType::Timestamp(_, _) => Ok("Edm.DateTime"),
         DataType::Date32 => Ok("Edm.DateTime"),
         DataType::Date64 => Ok("Edm.DateTime"),
-        DataType::Time32(_) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::Time64(_) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::Duration(_) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::Interval(_) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::Binary => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::BinaryView => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::FixedSizeBinary(_) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::LargeBinary => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::List(_) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::FixedSizeList(_, _) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::LargeList(_) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::ListView(_) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::LargeListView(_) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::Struct(_) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::Union(_, _) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::Dictionary(_, _) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::Decimal128(_, _) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::Decimal256(_, _) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::Map(_, _) => Err(Error::UnsupportedDataType(dt.clone())),
-        DataType::RunEndEncoded(_, _) => Err(Error::UnsupportedDataType(dt.clone())),
+        DataType::Null
+        | DataType::Utf8View
+        | DataType::Time32(_)
+        | DataType::Time64(_)
+        | DataType::Duration(_)
+        | DataType::Interval(_)
+        | DataType::Binary
+        | DataType::BinaryView
+        | DataType::FixedSizeBinary(_)
+        | DataType::LargeBinary
+        | DataType::List(_)
+        | DataType::FixedSizeList(_, _)
+        | DataType::LargeList(_)
+        | DataType::ListView(_)
+        | DataType::LargeListView(_)
+        | DataType::Struct(_)
+        | DataType::Union(_, _)
+        | DataType::Dictionary(_, _)
+        | DataType::Decimal128(_, _)
+        | DataType::Decimal256(_, _)
+        | DataType::Map(_, _)
+        | DataType::RunEndEncoded(_, _) => Err(UnsupportedDataType::new(dt.clone())),
     }
 }

@@ -1,15 +1,11 @@
 use std::sync::Arc;
 
-use axum::{
-    extract::Query,
-    response::{IntoResponse, Response, Result},
-    Extension,
-};
+use axum::{extract::Query, response::Response, Extension};
 
 use crate::{
     collection::QueryParamsRaw,
     context::{CollectionContext, OnUnsupported, ServiceContext, DEFAULT_NAMESPACE},
-    error::Error,
+    error::{ODataError, UnsupportedDataType},
     metadata::{
         to_edm_type, DataServices, Edmx, EntityContainer, EntityKey, EntitySet, EntityType,
         Property, PropertyRef,
@@ -17,14 +13,18 @@ use crate::{
     service::{Collection, Service, Workspace},
 };
 
+///////////////////////////////////////////////////////////////////////////////
+
 pub const MEDIA_TYPE_ATOM: &str = "application/atom+xml;type=feed;charset=utf-8";
 pub const MEDIA_TYPE_XML: &str = "application/xml;charset=utf-8";
 
 const DEFAULT_COLLECTION_RESPONSE_SIZE: usize = 512_000;
 
+///////////////////////////////////////////////////////////////////////////////
+
 pub async fn odata_service_handler(
     Extension(odata_ctx): Extension<Arc<dyn ServiceContext>>,
-) -> Result<Response<String>> {
+) -> Result<Response<String>, ODataError> {
     let mut collections = Vec::new();
 
     for coll in odata_ctx.list_collections().await? {
@@ -42,15 +42,19 @@ pub async fn odata_service_handler(
         },
     );
 
-    Ok(Response::builder()
+    let xml = write_object_to_xml("service", &service)?;
+
+    Response::builder()
         .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_XML)
-        .body(write_object_to_xml("service", &service)?)
-        .map_err(Error::from)?)
+        .body(xml)
+        .map_err(ODataError::internal)
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 pub async fn odata_metadata_handler(
     Extension(odata_ctx): Extension<Arc<dyn ServiceContext>>,
-) -> Result<Response<String>> {
+) -> Result<Response<String>, ODataError> {
     let mut entity_types = Vec::new();
     let mut entity_container = EntityContainer {
         name: DEFAULT_NAMESPACE.to_string(),
@@ -67,11 +71,7 @@ pub async fn odata_metadata_handler(
                 Ok(typ) => typ,
                 Err(err) => match odata_ctx.on_unsupported_feature() {
                     OnUnsupported::Error => {
-                        return Err(Error::UnsupportedFeature(format!(
-                            "Unsupported field type {:?}",
-                            field.data_type()
-                        ))
-                        .into());
+                        Err(UnsupportedDataType::new(field.data_type().clone()))?
                     }
                     OnUnsupported::Warn => {
                         tracing::error!(
@@ -92,7 +92,7 @@ pub async fn odata_metadata_handler(
         // https://www.odata.org/documentation/odata-version-3-0/common-schema-definition-language-csdl/#csdl6.3
         let property_ref_name = match coll.key_column() {
             Ok(kc) => kc,
-            Err(Error::KeyColumnNotAssigned) => match properties.first() {
+            Err(ODataError::KeyColumnNotAssigned(_)) => match properties.first() {
                 Some(prop) => prop.name.clone(),
                 None => collection_name.to_string(),
             },
@@ -103,7 +103,7 @@ pub async fn odata_metadata_handler(
                     error_dbg = ?err,
                     "Failed to get key column",
                 );
-                return Err(err.into());
+                Err(err)?
             }
         };
 
@@ -127,24 +127,28 @@ pub async fn odata_metadata_handler(
         vec![entity_container],
     )]));
 
-    Ok(Response::builder()
+    let xml = write_object_to_xml("edmx:Edmx", &metadata)?;
+
+    Response::builder()
         .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_XML)
-        .body(write_object_to_xml("edmx:Edmx", &metadata)?)
-        .map_err(Error::from)?)
+        .body(xml)
+        .map_err(ODataError::internal)
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 pub async fn odata_collection_handler(
     Extension(ctx): Extension<Arc<dyn CollectionContext>>,
     Query(query): Query<QueryParamsRaw>,
     _headers: axum::http::HeaderMap,
-) -> Result<Response<String>> {
+) -> Result<Response<String>, ODataError> {
     let query = query.decode();
     tracing::debug!(?query, "Decoded query");
 
-    let df = ctx.query(query).await.map_err(Error::from)?;
+    let df = ctx.query(query).await.map_err(ODataError::from)?;
 
     let schema: datafusion::arrow::datatypes::Schema = df.schema().clone().into();
-    let record_batches = df.collect().await.map_err(Error::from)?;
+    let record_batches = df.collect().await.map_err(ODataError::internal)?;
 
     let num_rows: usize = record_batches.iter().map(|b| b.num_rows()).sum();
     let raw_bytes: usize = record_batches
@@ -162,11 +166,9 @@ pub async fn odata_collection_handler(
             ctx.last_updated_time().await,
             ctx.on_unsupported_feature(),
             &mut writer,
-        )
-        .map_err(Error::from)?;
+        )?;
     } else {
         let num_rows: usize = record_batches.iter().map(|b| b.num_rows()).sum();
-        // TODO
         assert!(num_rows <= 1, "Request by key returned {} rows", num_rows);
         assert!(
             record_batches.len() <= 1,
@@ -175,10 +177,10 @@ pub async fn odata_collection_handler(
         );
 
         if record_batches.len() != 1 || record_batches[0].num_rows() != 1 {
-            return Ok(Response::builder()
+            return Response::builder()
                 .status(http::StatusCode::NOT_FOUND)
-                .body("".into())
-                .map_err(Error::from)?);
+                .body(String::new())
+                .map_err(ODataError::internal);
         }
 
         crate::atom::write_atom_entry_from_record(
@@ -188,11 +190,10 @@ pub async fn odata_collection_handler(
             ctx.last_updated_time().await,
             ctx.on_unsupported_feature(),
             &mut writer,
-        )
-        .map_err(Error::from)?;
+        )?;
     }
 
-    let body = String::from_utf8(writer.into_inner()).map_err(Error::from)?;
+    let body = String::from_utf8(writer.into_inner()).map_err(ODataError::internal)?;
 
     tracing::debug!(
         media_type = MEDIA_TYPE_ATOM,
@@ -202,13 +203,15 @@ pub async fn odata_collection_handler(
         "Prepared a response"
     );
 
-    Ok(Response::builder()
+    Response::builder()
         .header(http::header::CONTENT_TYPE.as_str(), MEDIA_TYPE_ATOM)
         .body(body)
-        .map_err(Error::from)?)
+        .map_err(ODataError::internal)
 }
 
-fn write_object_to_xml<T>(tag: &str, object: &T) -> Result<String>
+///////////////////////////////////////////////////////////////////////////////
+
+fn write_object_to_xml<T>(tag: &str, object: &T) -> Result<String, ODataError>
 where
     T: serde::ser::Serialize,
 {
@@ -219,29 +222,11 @@ where
         .write_event(quick_xml::events::Event::Decl(
             quick_xml::events::BytesDecl::new("1.0", Some("utf-8"), None),
         ))
-        .map_err(Error::from)?;
+        .map_err(ODataError::internal)?;
 
     writer
         .write_serializable(tag, object)
-        .map_err(Error::from)?;
+        .map_err(ODataError::internal)?;
 
-    Ok(String::from_utf8(writer.into_inner()).map_err(Error::from)?)
-}
-
-impl IntoResponse for Error {
-    fn into_response(self) -> Response {
-        tracing::error!("Error: {self}");
-        match self {
-            Error::Datafusion(datafusion::error::DataFusionError::Plan(ref e)) => {
-                if e.contains("No table named") {
-                    return (http::StatusCode::NOT_FOUND, "Not found").into_response();
-                }
-            }
-            Error::CollectionNotFound(_) => {
-                return (http::StatusCode::NOT_FOUND, "Not found").into_response();
-            }
-            _ => {}
-        }
-        (http::StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response()
-    }
+    Ok(String::from_utf8(writer.into_inner()).unwrap())
 }

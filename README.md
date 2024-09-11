@@ -15,17 +15,17 @@ Query using [xh](https://github.com/ducaale/xh):
 
 Service root:
 ```sh
-xh GET 'http://localhost:3000/'
+xh GET 'http://localhost:50051/'
 ```
 
 Metadata:
 ```sh
-xh GET 'http://localhost:3000/$metadata'
+xh GET 'http://localhost:50051/$metadata'
 ```
 
 Query collection:
 ```sh
-xh GET 'http://localhost:3000/tickers.spy/?$select=offset,from_symbol,to_symbol,close&$top=5'
+xh GET 'http://localhost:50051/tickers.spy/?$select=offset,from_symbol,to_symbol,close&$top=5'
 ```
 
 ## Status

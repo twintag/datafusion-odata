@@ -9,7 +9,7 @@ use quick_xml::events::*;
 
 use crate::{
     context::{CollectionContext, OnUnsupported},
-    error::Result,
+    error::ODataError,
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -72,7 +72,7 @@ pub fn write_atom_feed_from_records<W>(
     updated_time: DateTime<Utc>,
     on_unsupported: OnUnsupported,
     writer: &mut quick_xml::Writer<W>,
-) -> Result<()>
+) -> Result<(), ODataError>
 where
     W: std::io::Write,
 {
@@ -91,6 +91,42 @@ where
         collection_base_url.pop();
     }
 
+    write_atom_feed_from_records_impl(
+        schema,
+        record_batches,
+        ctx,
+        updated_time,
+        on_unsupported,
+        writer,
+        service_base_url,
+        collection_base_url,
+        collection_name,
+        type_namespace,
+        type_name,
+    )
+    .map_err(ODataError::internal)
+}
+
+// TODO: Use erased dyn Writer type
+// TODO: Extract `CollectionInfo` type to avoid propagating
+//       a bunch of individual parameters
+#[allow(clippy::too_many_arguments)]
+fn write_atom_feed_from_records_impl<W>(
+    schema: &Schema,
+    record_batches: Vec<RecordBatch>,
+    ctx: &dyn CollectionContext,
+    updated_time: DateTime<Utc>,
+    on_unsupported: OnUnsupported,
+    writer: &mut quick_xml::Writer<W>,
+    service_base_url: String,
+    collection_base_url: String,
+    collection_name: String,
+    type_namespace: String,
+    type_name: String,
+) -> std::result::Result<(), quick_xml::Error>
+where
+    W: std::io::Write,
+{
     let fq_type = format!("{type_namespace}.{type_name}");
 
     let mut columns = Vec::new();
@@ -283,7 +319,7 @@ pub fn write_atom_entry_from_record<W>(
     updated_time: DateTime<Utc>,
     on_unsupported: OnUnsupported,
     writer: &mut quick_xml::Writer<W>,
-) -> Result<()>
+) -> Result<(), ODataError>
 where
     W: std::io::Write,
 {
@@ -304,6 +340,42 @@ where
         collection_base_url.pop();
     }
 
+    write_atom_entry_from_record_impl(
+        schema,
+        batch,
+        ctx,
+        updated_time,
+        on_unsupported,
+        writer,
+        service_base_url,
+        collection_base_url,
+        collection_name,
+        type_namespace,
+        type_name,
+    )
+    .map_err(ODataError::internal)
+}
+
+// TODO: Use erased dyn Writer type
+// TODO: Extract `CollectionInfo` type to avoid propagating
+//       a bunch of individual parameters
+#[allow(clippy::too_many_arguments)]
+fn write_atom_entry_from_record_impl<W>(
+    schema: &Schema,
+    batch: RecordBatch,
+    ctx: &dyn CollectionContext,
+    updated_time: DateTime<Utc>,
+    on_unsupported: OnUnsupported,
+    writer: &mut quick_xml::Writer<W>,
+    service_base_url: String,
+    collection_base_url: String,
+    collection_name: String,
+    type_namespace: String,
+    type_name: String,
+) -> std::result::Result<(), quick_xml::Error>
+where
+    W: std::io::Write,
+{
     let fq_type = format!("{type_namespace}.{type_name}");
 
     let mut columns = Vec::new();
@@ -521,6 +593,8 @@ fn encode_date_time(dt: &DateTime<Utc>) -> BytesText<'static> {
     let s = dt.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
     BytesText::from_escaped(s)
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 #[cfg(test)]
 mod tests {

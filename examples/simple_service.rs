@@ -4,12 +4,12 @@ use chrono::{DateTime, Utc};
 use datafusion::arrow::datatypes::SchemaRef;
 use datafusion::{prelude::*, sql::TableReference};
 
-use axum::response::{Response, Result as AxumResult};
+use axum::response::Response;
 
 use datafusion_odata::{
     collection::{CollectionAddr, QueryParams, QueryParamsRaw},
     context::{CollectionContext, OnUnsupported, ServiceContext},
-    error::{Error, Result},
+    error::{CollectionNotFound, ODataError},
     handlers::{MEDIA_TYPE_ATOM, MEDIA_TYPE_XML},
 };
 
@@ -25,7 +25,7 @@ const DEFAULT_MAX_ROWS: usize = 100;
 pub async fn odata_service_handler(
     axum::extract::State(query_ctx): axum::extract::State<SessionContext>,
     host: axum::extract::Host,
-) -> AxumResult<Response<String>> {
+) -> Result<Response<String>, ODataError> {
     let ctx = Arc::new(ODataContext::new_service(query_ctx, host));
     datafusion_odata::handlers::odata_service_handler(axum::Extension(ctx)).await
 }
@@ -35,7 +35,7 @@ pub async fn odata_service_handler(
 pub async fn odata_metadata_handler(
     axum::extract::State(query_ctx): axum::extract::State<SessionContext>,
     host: axum::extract::Host,
-) -> AxumResult<Response<String>> {
+) -> Result<Response<String>, ODataError> {
     let ctx = ODataContext::new_service(query_ctx, host);
     datafusion_odata::handlers::odata_metadata_handler(axum::Extension(Arc::new(ctx))).await
 }
@@ -48,12 +48,9 @@ pub async fn odata_collection_handler(
     axum::extract::Path(collection_path_element): axum::extract::Path<String>,
     query: axum::extract::Query<QueryParamsRaw>,
     headers: axum::http::HeaderMap,
-) -> AxumResult<Response<String>> {
+) -> Result<Response<String>, ODataError> {
     let Some(addr) = CollectionAddr::decode(&collection_path_element) else {
-        return Ok(axum::response::Response::builder()
-            .status(http::StatusCode::NOT_FOUND)
-            .body("".into())
-            .map_err(Error::from)?);
+        Err(CollectionNotFound::new(collection_path_element))?
     };
 
     let ctx = Arc::new(ODataContext::new_collection(query_ctx, host, addr));
@@ -99,7 +96,7 @@ impl ServiceContext for ODataContext {
         self.service_base_url.clone()
     }
 
-    async fn list_collections(&self) -> Result<Vec<Arc<dyn CollectionContext>>> {
+    async fn list_collections(&self) -> Result<Vec<Arc<dyn CollectionContext>>, ODataError> {
         let cnames = self.query_ctx.catalog_names();
         assert_eq!(
             cnames.len(),
@@ -142,21 +139,21 @@ impl ServiceContext for ODataContext {
 
 #[async_trait::async_trait]
 impl CollectionContext for ODataContext {
-    fn addr(&self) -> Result<&CollectionAddr> {
+    fn addr(&self) -> Result<&CollectionAddr, ODataError> {
         Ok(self.addr.as_ref().unwrap())
     }
 
-    fn service_base_url(&self) -> Result<String> {
+    fn service_base_url(&self) -> Result<String, ODataError> {
         Ok(self.service_base_url.clone())
     }
 
-    fn collection_base_url(&self) -> Result<String> {
+    fn collection_base_url(&self) -> Result<String, ODataError> {
         let service_base_url = &self.service_base_url;
         let collection_name = self.collection_name()?;
         Ok(format!("{service_base_url}{collection_name}"))
     }
 
-    fn collection_name(&self) -> Result<String> {
+    fn collection_name(&self) -> Result<String, ODataError> {
         Ok(self.addr()?.name.clone())
     }
 
@@ -164,19 +161,31 @@ impl CollectionContext for ODataContext {
         Utc::now()
     }
 
-    async fn schema(&self) -> Result<SchemaRef> {
+    async fn schema(&self) -> Result<SchemaRef, ODataError> {
         Ok(self
             .query_ctx
             .table_provider(TableReference::bare(self.collection_name()?))
-            .await?
+            .await
+            .map_err(|e| {
+                ODataError::handle_no_table_as_collection_not_found(
+                    self.collection_name().unwrap(),
+                    e,
+                )
+            })?
             .schema())
     }
 
-    async fn query(&self, query: QueryParams) -> Result<DataFrame> {
+    async fn query(&self, query: QueryParams) -> Result<DataFrame, ODataError> {
         let df = self
             .query_ctx
             .table(TableReference::bare(self.collection_name()?))
-            .await?;
+            .await
+            .map_err(|e| {
+                ODataError::handle_no_table_as_collection_not_found(
+                    self.collection_name().unwrap(),
+                    e,
+                )
+            })?;
 
         query
             .apply(
@@ -187,7 +196,7 @@ impl CollectionContext for ODataContext {
                 DEFAULT_MAX_ROWS,
                 usize::MAX,
             )
-            .map_err(Error::from)
+            .map_err(ODataError::internal)
     }
 
     fn on_unsupported_feature(&self) -> OnUnsupported {
