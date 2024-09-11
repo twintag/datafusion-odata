@@ -613,7 +613,7 @@ mod tests {
         let result = encode_primitive_dyn(&values, 0);
         assert_eq!(result, BytesText::new("1"));
 
-        let values = vec![chrono::DateTime::from_timestamp_millis(1726012800000).unwrap()];
+        let values = [chrono::DateTime::from_timestamp_millis(1726012800000).unwrap()];
         let values: Date64Array = values
             .iter()
             .map(|d| Date64Type::from_naive_date(d.date_naive()))
