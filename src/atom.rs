@@ -9,51 +9,45 @@ use quick_xml::events::*;
 
 use crate::{
     context::{CollectionContext, OnUnsupported},
-    error::{ODataError, UnsupportedColumnType, UnsupportedDataType, UnsupportedNetProtocol},
+    error::{ODataError, UnsupportedDataType, UnsupportedNetProtocol},
     metadata::to_edm_type,
 };
 
+// TODO: Replace with an interface similar to Encoder
+// See: https://github.com/kamu-data/kamu-cli/blob/385bbf56036d4485efdf54bf458a95bfba048b2b/src/utils/data-utils/src/data/format/traits.rs#L69
 struct Edm {
     typ: String,
-    _name: String,
     tag: String,
-    _nullable: bool,
 }
 
 impl Edm {
     fn from_field(field: &Arc<Field>) -> Result<Self, UnsupportedDataType> {
-        let name = field.name().clone();
-        let tag = format!("d:{name}");
+        // TODO: Escape field name
+        let tag = format!("d:{}", field.name());
         let typ = to_edm_type(field.data_type())?.to_string();
-        Ok(Self {
-            typ,
-            tag,
-            _name: name,
-            _nullable: field.is_nullable(),
-        })
+        Ok(Self { typ, tag })
     }
 }
 
 fn to_edms(
-    ctx: &dyn CollectionContext,
     schema: &Schema,
-    collection_name: &str,
+    key_column: &str,
+    on_unsupported: OnUnsupported,
 ) -> Result<(Vec<(Edm, usize)>, usize), UnsupportedDataType> {
     let mut edms = Vec::new();
     let mut key_edm_index = usize::MAX;
 
     for (index, field) in schema.fields().iter().enumerate() {
-        if field.name() == &ctx.key_column_alias() {
+        if field.name() == key_column {
             key_edm_index = index;
             continue;
         }
         let edm = match Edm::from_field(field) {
             Ok(typ) => typ,
-            Err(err) => match ctx.on_unsupported_feature() {
+            Err(err) => match on_unsupported {
                 OnUnsupported::Error => return Err(err),
                 OnUnsupported::Warn => {
-                    tracing::error!(
-                        table = collection_name,
+                    tracing::warn!(
                         field = field.name(),
                         error = %err,
                         error_dbg = ?err,
@@ -158,7 +152,11 @@ where
 
     let fq_type = format!("{type_namespace}.{type_name}");
 
-    let (edms, key_edm_index) = to_edms(ctx, schema, &collection_name)?;
+    let (edms, key_edm_index) = to_edms(
+        schema,
+        &ctx.key_column_alias(),
+        ctx.on_unsupported_feature(),
+    )?;
 
     writer.write_event(quick_xml::events::Event::Decl(BytesDecl::new(
         "1.0",
@@ -266,11 +264,11 @@ where
             for (edm, index) in &edms {
                 let col = batch.column(*index);
 
-                let mut start = BytesStart::new(edm.tag.clone());
+                let mut start = BytesStart::new(&edm.tag);
                 start.push_attribute(("m:type", edm.typ.as_str()));
                 writer.write_event(Event::Start(start))?;
                 writer.write_event(Event::Text(encode_primitive_dyn(col, row)?))?;
-                writer.write_event(Event::End(BytesEnd::new(edm.tag.clone())))?;
+                writer.write_event(Event::End(BytesEnd::new(&edm.tag)))?;
             }
 
             writer.write_event(Event::End(BytesEnd::new("m:properties")))?;
@@ -346,7 +344,11 @@ where
 
     let fq_type = format!("{type_namespace}.{type_name}");
 
-    let (edms, key_edm_index) = to_edms(ctx, schema, &collection_name)?;
+    let (edms, key_edm_index) = to_edms(
+        schema,
+        &ctx.key_column_alias(),
+        ctx.on_unsupported_feature(),
+    )?;
 
     writer.write_event(quick_xml::events::Event::Decl(BytesDecl::new(
         "1.0",
@@ -428,11 +430,11 @@ where
     for (edm, index) in &edms {
         let col = batch.column(*index);
 
-        let mut start = BytesStart::new(edm.tag.clone());
+        let mut start = BytesStart::new(&edm.tag);
         start.push_attribute(("m:type", edm.typ.as_str()));
         writer.write_event(Event::Start(start))?;
         writer.write_event(Event::Text(encode_primitive_dyn(col, row)?))?;
-        writer.write_event(Event::End(BytesEnd::new(edm.tag.clone())))?;
+        writer.write_event(Event::End(BytesEnd::new(&edm.tag)))?;
     }
 
     writer.write_event(Event::End(BytesEnd::new("m:properties")))?;
@@ -447,13 +449,12 @@ where
 fn encode_primitive_dyn(
     col: &Arc<dyn Array>,
     row: usize,
-) -> Result<BytesText, UnsupportedColumnType> {
+) -> Result<BytesText, UnsupportedDataType> {
     let col_type = col.data_type().clone();
     if col.is_null(row) {
         Ok(BytesText::new("null"))
     } else {
         match col_type {
-            DataType::Null => Err(UnsupportedColumnType::new(col_type)),
             DataType::Boolean => {
                 let arr = col.as_boolean();
                 let val = arr.value(row).to_string();
@@ -474,26 +475,18 @@ fn encode_primitive_dyn(
                 let arr = col.as_primitive::<TimestampMillisecondType>();
                 let ticks = arr.value(row);
                 let ts = chrono::DateTime::from_timestamp_millis(ticks)
-                    .ok_or(UnsupportedColumnType::new(col_type))?;
+                    .ok_or(UnsupportedDataType::new(col_type))?;
                 Ok(encode_date_time(&ts))
             }
-            DataType::Date32 => Err(UnsupportedColumnType::new(col_type)),
+            DataType::Date32 => Err(UnsupportedDataType::new(col_type)),
             DataType::Date64 => {
                 let arr = col.as_primitive::<Date64Type>();
                 let ticks = arr.value(row);
                 let ts = chrono::DateTime::from_timestamp_millis(ticks)
-                    .ok_or(UnsupportedColumnType::new(col_type))?;
+                    .ok_or(UnsupportedDataType::new(col_type))?;
                 Ok(encode_date_time(&ts))
             }
-            DataType::Time32(_) => Err(UnsupportedColumnType::new(col_type)),
-            DataType::Time64(_) => Err(UnsupportedColumnType::new(col_type)),
-            DataType::Duration(_) => Err(UnsupportedColumnType::new(col_type)),
-            DataType::Interval(_) => Err(UnsupportedColumnType::new(col_type)),
-            DataType::Binary => Err(UnsupportedColumnType::new(col_type)),
-            DataType::FixedSizeBinary(_) => Err(UnsupportedColumnType::new(col_type)),
-            DataType::LargeBinary => Err(UnsupportedColumnType::new(col_type)),
-            DataType::BinaryView => Err(UnsupportedColumnType::new(col_type)),
-            DataType::Utf8 => {
+            DataType::Null | DataType::Utf8 => {
                 let arr = col.as_string::<i32>();
                 let val = arr.value(row);
                 Ok(BytesText::from_escaped(quick_xml::escape::escape(val)))
@@ -503,20 +496,27 @@ fn encode_primitive_dyn(
                 let val = arr.value(row);
                 Ok(BytesText::from_escaped(quick_xml::escape::escape(val)))
             }
-            DataType::Utf8View => Err(UnsupportedColumnType::new(col_type)),
-            DataType::List(_) => Err(UnsupportedColumnType::new(col_type)),
-            DataType::FixedSizeList(_, _) => Err(UnsupportedColumnType::new(col_type)),
-            DataType::LargeList(_) => Err(UnsupportedColumnType::new(col_type)),
-            DataType::ListView(_) | DataType::LargeListView(_) => {
-                Err(UnsupportedColumnType::new(col_type))
-            }
-            DataType::Struct(_) => Err(UnsupportedColumnType::new(col_type)),
-            DataType::Union(_, _) => Err(UnsupportedColumnType::new(col_type)),
-            DataType::Dictionary(_, _) => Err(UnsupportedColumnType::new(col_type)),
-            DataType::Decimal128(_, _) => Err(UnsupportedColumnType::new(col_type)),
-            DataType::Decimal256(_, _) => Err(UnsupportedColumnType::new(col_type)),
-            DataType::Map(_, _) => Err(UnsupportedColumnType::new(col_type)),
-            DataType::RunEndEncoded(_, _) => Err(UnsupportedColumnType::new(col_type)),
+            DataType::Time32(_)
+            | DataType::Time64(_)
+            | DataType::Duration(_)
+            | DataType::Interval(_)
+            | DataType::Binary
+            | DataType::FixedSizeBinary(_)
+            | DataType::LargeBinary
+            | DataType::BinaryView
+            | DataType::Utf8View
+            | DataType::List(_)
+            | DataType::FixedSizeList(_, _)
+            | DataType::LargeList(_)
+            | DataType::ListView(_)
+            | DataType::LargeListView(_)
+            | DataType::Struct(_)
+            | DataType::Union(_, _)
+            | DataType::Dictionary(_, _)
+            | DataType::Decimal128(_, _)
+            | DataType::Decimal256(_, _)
+            | DataType::Map(_, _)
+            | DataType::RunEndEncoded(_, _) => Err(UnsupportedDataType::new(col_type)),
         }
     }
 }

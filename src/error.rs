@@ -8,12 +8,6 @@ pub enum ODataError {
     #[error(transparent)]
     UnsupportedDataType(#[from] UnsupportedDataType),
     #[error(transparent)]
-    UnsupportedColumnType(#[from] UnsupportedColumnType),
-    #[error(transparent)]
-    BatchUnexpectedRowsNumber(#[from] BatchUnexpectedRowsNumber),
-    #[error(transparent)]
-    UnexpectedBatchesNumber(#[from] UnexpectedBatchesNumber),
-    #[error(transparent)]
     FromUtf8Error(#[from] FromUtf8Error),
     #[error(transparent)]
     UnsupportedFeature(#[from] UnsupportedFeature),
@@ -50,15 +44,11 @@ impl ODataError {
 impl axum::response::IntoResponse for ODataError {
     fn into_response(self) -> axum::response::Response {
         match self {
-            Self::Internal(_)
-            | Self::BatchUnexpectedRowsNumber(_)
-            | Self::UnexpectedBatchesNumber(_)
-            | Self::FromUtf8Error(_) => {
+            Self::Internal(_) | Self::FromUtf8Error(_) => {
                 (http::StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response()
             }
             Self::CollectionNotFound(e) => e.into_response(),
             Self::UnsupportedDataType(e) => e.into_response(),
-            Self::UnsupportedColumnType(e) => e.into_response(),
             Self::UnsupportedFeature(e) => e.into_response(),
             Self::CollectionAddressNotAssigned(e) => e.into_response(),
             Self::KeyColumnNotAssigned(e) => e.into_response(),
@@ -147,54 +137,6 @@ impl UnsupportedDataType {
 impl axum::response::IntoResponse for UnsupportedDataType {
     fn into_response(self) -> axum::response::Response {
         (http::StatusCode::NOT_IMPLEMENTED, self.to_string()).into_response()
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-#[derive(thiserror::Error, Debug)]
-#[error("Unsupported column type: {col_type}")]
-pub struct UnsupportedColumnType {
-    pub col_type: DataType,
-}
-
-impl UnsupportedColumnType {
-    pub fn new(col_type: DataType) -> Self {
-        Self { col_type }
-    }
-}
-
-impl axum::response::IntoResponse for UnsupportedColumnType {
-    fn into_response(self) -> axum::response::Response {
-        (http::StatusCode::NOT_IMPLEMENTED, self.to_string()).into_response()
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-#[derive(thiserror::Error, Debug)]
-#[error("Batch has unexpected rows number: {num_rows}")]
-pub struct BatchUnexpectedRowsNumber {
-    pub num_rows: usize,
-}
-
-impl BatchUnexpectedRowsNumber {
-    pub fn new(num_rows: usize) -> Self {
-        Self { num_rows }
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-#[derive(thiserror::Error, Debug)]
-#[error("Unexpected number of batches: {num}")]
-pub struct UnexpectedBatchesNumber {
-    pub num: usize,
-}
-
-impl UnexpectedBatchesNumber {
-    pub fn new(num: usize) -> Self {
-        Self { num }
     }
 }
 

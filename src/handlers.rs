@@ -5,7 +5,7 @@ use axum::{extract::Query, response::Response, Extension};
 use crate::{
     collection::QueryParamsRaw,
     context::{CollectionContext, OnUnsupported, ServiceContext, DEFAULT_NAMESPACE},
-    error::{BatchUnexpectedRowsNumber, ODataError, UnexpectedBatchesNumber, UnsupportedDataType},
+    error::{ODataError, UnsupportedDataType},
     metadata::{
         to_edm_type, DataServices, Edmx, EntityContainer, EntityKey, EntitySet, EntityType,
         Property, PropertyRef,
@@ -169,11 +169,15 @@ pub async fn odata_collection_handler(
     } else {
         let num_rows: usize = record_batches.iter().map(|b| b.num_rows()).sum();
         if num_rows > 1 {
-            return Err(BatchUnexpectedRowsNumber::new(num_rows).into());
+            return Err(ODataError::internal(BatchUnexpectedRowsNumber::new(
+                num_rows,
+            )));
         }
 
         if record_batches.len() > 1 {
-            return Err(UnexpectedBatchesNumber::new(record_batches.len()).into());
+            return Err(ODataError::internal(UnexpectedBatchesNumber::new(
+                record_batches.len(),
+            )));
         }
 
         let record_batch = match record_batches.into_iter().next() {
@@ -238,4 +242,32 @@ where
         .map_err(ODataError::internal)?;
 
     Ok(String::from_utf8(writer.into_inner())?)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+#[derive(thiserror::Error, Debug)]
+#[error("Batch has unexpected rows number: {num_rows}")]
+pub struct BatchUnexpectedRowsNumber {
+    pub num_rows: usize,
+}
+
+impl BatchUnexpectedRowsNumber {
+    pub fn new(num_rows: usize) -> Self {
+        Self { num_rows }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+#[derive(thiserror::Error, Debug)]
+#[error("Unexpected number of batches: {num}")]
+pub struct UnexpectedBatchesNumber {
+    pub num: usize,
+}
+
+impl UnexpectedBatchesNumber {
+    pub fn new(num: usize) -> Self {
+        Self { num }
+    }
 }
