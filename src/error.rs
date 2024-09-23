@@ -6,6 +6,8 @@ use std::string::FromUtf8Error;
 #[derive(thiserror::Error, Debug)]
 pub enum ODataError {
     #[error(transparent)]
+    BadRequest(#[from] BadRequest),
+    #[error(transparent)]
     UnsupportedDataType(#[from] UnsupportedDataType),
     #[error(transparent)]
     FromUtf8Error(#[from] FromUtf8Error),
@@ -20,14 +22,18 @@ pub enum ODataError {
     #[error(transparent)]
     KeyColumnNotAssigned(#[from] KeyColumnNotAssigned),
     #[error(transparent)]
-    FilterParsingError(#[from] FilterParsingError),
-    #[error(transparent)]
     Internal(InternalError),
 }
 
 impl ODataError {
     pub fn internal(error: impl Into<Box<dyn std::error::Error + Send + Sync + 'static>>) -> Self {
         Self::Internal(InternalError::new(error))
+    }
+
+    pub fn bad_request(
+        error: impl Into<Box<dyn std::error::Error + Send + Sync + 'static>>,
+    ) -> Self {
+        Self::BadRequest(BadRequest::new(error))
     }
 
     pub fn handle_no_table_as_collection_not_found(
@@ -49,13 +55,13 @@ impl axum::response::IntoResponse for ODataError {
             Self::Internal(_) | Self::FromUtf8Error(_) => {
                 (http::StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response()
             }
+            Self::BadRequest(e) => e.into_response(),
             Self::CollectionNotFound(e) => e.into_response(),
             Self::UnsupportedDataType(e) => e.into_response(),
             Self::UnsupportedFeature(e) => e.into_response(),
             Self::CollectionAddressNotAssigned(e) => e.into_response(),
             Self::KeyColumnNotAssigned(e) => e.into_response(),
             Self::UnsupportedNetProtocol(e) => e.into_response(),
-            Self::FilterParsingError(e) => e.into_response(),
         }
     }
 }
@@ -80,26 +86,23 @@ impl InternalError {
 ///////////////////////////////////////////////////////////////////////////////
 
 #[derive(thiserror::Error, Debug)]
-#[error("Filter parsing error: {msg}")]
-pub struct FilterParsingError {
-    pub msg: String,
+#[error("{source}")]
+pub struct BadRequest {
+    #[source]
+    pub source: Box<dyn std::error::Error + Send + Sync + 'static>,
 }
 
-impl FilterParsingError {
-    pub fn new(msg: impl Into<String>) -> Self {
-        Self { msg: msg.into() }
+impl BadRequest {
+    pub fn new(error: impl Into<Box<dyn std::error::Error + Send + Sync + 'static>>) -> Self {
+        Self {
+            source: error.into(),
+        }
     }
 }
 
-impl axum::response::IntoResponse for FilterParsingError {
+impl axum::response::IntoResponse for BadRequest {
     fn into_response(self) -> axum::response::Response {
         (http::StatusCode::BAD_REQUEST, self.to_string()).into_response()
-    }
-}
-
-impl From<odata_params::filters::ParseError> for ODataError {
-    fn from(error: odata_params::filters::ParseError) -> Self {
-        ODataError::FilterParsingError(FilterParsingError::new(error.to_string()))
     }
 }
 

@@ -25,7 +25,7 @@ xh GET 'http://localhost:50051/$metadata'
 
 Query collection:
 ```sh
-xh GET 'http://localhost:50051/tickers.spy/?$select=offset,from_symbol,to_symbol,close&$top=5'
+xh GET 'http://localhost:50051/tickers.spy?$select=offset,from_symbol,to_symbol,close&$top=5'
 ```
 
 ## Status

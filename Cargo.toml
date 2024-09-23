@@ -20,7 +20,7 @@ regex = { version = "1", default-features = false }
 serde = { version = "1", features = ["derive"] }
 thiserror = { version = "1" }
 tracing = "0.1"
-odata-params = "0.4.0"
+odata-params = "0.4"
 
 [dev-dependencies]
 datafusion = { version = "42", default-features = false, features = [
@@ -40,7 +40,7 @@ tokio = { version = "1", default-features = false, features = [
     "rt-multi-thread",
 ] }
 tower = "0.5"
-tower-http = { version = "0.5", features = ["trace", "cors"] }
+tower-http = { version = "0.6", features = ["trace", "cors"] }
 
 [patch.crates-io]
 # datafusion = { git = 'https://github.com/apache/arrow-datafusion.git', tag = '42.0.0-rc1' }

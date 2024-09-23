@@ -150,7 +150,7 @@ async fn test_collection_with_filter() {
             order_by: Some("offset asc".to_string()),
             skip: None,
             top: None,
-            filter: Some("offset eq 0".to_string()),
+            filter: Some("offset eq 0".parse().unwrap()),
         }),
         axum::http::HeaderMap::new(),
     )
