@@ -839,7 +839,7 @@ dependencies = [
 
 [[package]]
 name = "datafusion-odata"
-version = "42.0.0"
+version = "42.1.0"
 dependencies = [
  "async-trait",
  "axum",
