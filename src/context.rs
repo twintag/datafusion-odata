@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use datafusion::{arrow::datatypes::SchemaRef, dataframe::DataFrame};
+use datafusion::{
+    arrow::{datatypes::SchemaRef, record_batch::RecordBatch},
+    dataframe::DataFrame,
+};
 
 use crate::{
     collection::{CollectionAddr, QueryParams},
@@ -55,6 +58,11 @@ pub trait CollectionContext: Send + Sync {
     async fn query(&self, query: QueryParams) -> Result<DataFrame, ODataError>;
 
     fn on_unsupported_feature(&self) -> OnUnsupported;
+
+    /// Validates the record batches that retunred from datafusion before encode them to xml
+    async fn validate(&self, _record_batches: &[RecordBatch]) -> Result<(), ODataError> {
+        Ok(())
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

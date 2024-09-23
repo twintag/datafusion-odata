@@ -150,6 +150,8 @@ pub async fn odata_collection_handler(
     let schema: datafusion::arrow::datatypes::Schema = df.schema().clone().into();
     let record_batches = df.collect().await.map_err(ODataError::internal)?;
 
+    ctx.validate(&record_batches).await?;
+
     let num_rows: usize = record_batches.iter().map(|b| b.num_rows()).sum();
     let raw_bytes: usize = record_batches
         .iter()
