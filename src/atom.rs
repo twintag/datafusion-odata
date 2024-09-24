@@ -452,7 +452,13 @@ fn encode_primitive_dyn(
 ) -> Result<BytesText, UnsupportedDataType> {
     let col_type = col.data_type().clone();
     if col.is_null(row) {
-        Ok(BytesText::new("null"))
+        // TODO remove this see:
+        //  https://github.com/kamu-data/datafusion-odata/pull/4#discussion_r1760397870
+        if col_type == DataType::Int8 || col_type == DataType::Int16 {
+            Ok(BytesText::new("0"))
+        } else {
+            Ok(BytesText::new("null"))
+        }
     } else {
         match col_type {
             DataType::Boolean => {
