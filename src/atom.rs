@@ -478,7 +478,7 @@ fn encode_primitive_dyn(
             DataType::Float32 => Ok(encode_primitive::<Float32Type>(col, row)),
             DataType::Float64 => Ok(encode_primitive::<Float64Type>(col, row)),
             DataType::Timestamp(_, _) => {
-                let arr = col.as_primitive::<TimestampMillisecondType>();
+                let arr = col.as_primitive::<TimestampMicrosecondType>();
                 let ticks = arr.value(row);
                 let ts = chrono::DateTime::from_timestamp_millis(ticks)
                     .ok_or(UnsupportedDataType::new(col_type))?;
