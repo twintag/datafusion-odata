@@ -47,4 +47,4 @@ tower = { version = "0.5" }
 tower-http = { version = "0.6", features = ["trace", "cors"] }
 
 [patch.crates-io]
-# datafusion = { git = 'https://github.com/apache/arrow-datafusion.git', tag = '42.0.0-rc1' }
+datafusion = { version = "53", git = 'https://github.com/twintag/datafusion', branch = "twintag-df53"}
