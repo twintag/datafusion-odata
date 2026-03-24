@@ -8,6 +8,7 @@ workspace-default-features = "deny"
 # Avoid adding dependencies to this list as this slows down compilation.
 # Find another ways to avoid duplication.
 skip-tree = [
+    { name = "getrandom" },   # TODO: const-random crate needs to update
     { name = "chrono-tz" },   # TODO: odata-params crate needs to update
     { name = "hashbrown" },
     { name = "thiserror" },   # TODO: odata-params crate needs to update
